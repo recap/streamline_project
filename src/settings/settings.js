@@ -1250,17 +1250,19 @@ async function loadPresenceSettingsAsync() {
                                 <div class="flex items-center gap-3">
                                     <div class="flex items-center gap-2">
                                         <input type="number" id="keep-awake-hours-input" class="input input-bordered w-20 text-[20px] bg-[var(--presence-input-bg)] text-[var(--presence-input-text)] border-[var(--presence-input-border)]"
-                                               min="0" max="12" placeholder="0" value="0">
+                                               min="0" max="12" placeholder="0" value="0"
+                                               oninput="this.value = Math.max(0, Math.min(12, this.value)); if (this.value == 12) { document.getElementById('keep-awake-mins-input').value = 0; } if (this.value > 12) { ui.showToast('Maximum 12 hours', 3000, 'error'); }">
                                         <span class="text-[var(--presence-card-text)]">hr</span>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <input type="number" id="keep-awake-mins-input" class="input input-bordered w-20 text-[20px] bg-[var(--presence-input-bg)] text-[var(--presence-input-text)] border-[var(--presence-input-border)]"
-                                               min="0" max="59" placeholder="0" value="0">
+                                               min="0" max="59" placeholder="0" value="0"
+                                               oninput="this.value = Math.max(0, Math.min(59, this.value))">
                                         <span class="text-[var(--presence-card-text)]">min</span>
                                     </div>
                                 </div>
                                 <p class="text-[18px] text-[var(--presence-card-text)] opacity-75 mt-1">
-                                    Duration to keep machine awake after schedule fires. Leave empty for wake-only.
+                                    Duration to keep machine awake after schedule fires. Max 12 hours.
                                 </p>
                             </div>
                         </div>
@@ -3428,6 +3430,12 @@ window.handleSaveSchedule = async function() {
 
         const hours = parseInt(document.getElementById('keep-awake-hours-input').value, 10) || 0;
         const mins = parseInt(document.getElementById('keep-awake-mins-input').value, 10) || 0;
+
+        if (hours > 12) {
+            ui.showToast('Keep awake duration cannot exceed 12 hours (720 minutes)', 5000, 'error');
+            return;
+        }
+
         const keepAwakeFor = (hours * 60) + mins;
 
         const schedule = {
