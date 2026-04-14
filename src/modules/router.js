@@ -356,6 +356,20 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                                                 window.app.ui.updateDoseValue('in', val);
                                             } else if (type === 'drink-out') {
                                                 window.app.ui.updateDoseValue('out', val);
+                                            } else if (type === 'grind') {
+                                                window.app.ui.updateGrindValue(val);
+                                            } else if (type === 'temperature') {
+                                                window.app.ui.updateTemperatureDisplay(val);
+                                            } else if (type === 'steam-duration') {
+                                                window.app.ui.updateSteamDisplay({ targetSteamDuration: parseFloat(val) });
+                                            } else if (type === 'steam-flow') {
+                                                window.app.ui.updateSteamDisplay({ targetSteamFlow: parseFloat(val) });
+                                            } else if (type === 'flush') {
+                                                window.app.ui.updateFlushDisplay(parseFloat(val));
+                                            } else if (type === 'hot-water-vol') {
+                                                window.app.ui.updateHotWaterDisplay({ targetHotWaterVolume: parseFloat(val) });
+                                            } else if (type === 'hot-water-temp') {
+                                                window.app.ui.updateHotWaterDisplay({ targetHotWaterTemp: parseFloat(val) });
                                             }
                                         }
                                     });

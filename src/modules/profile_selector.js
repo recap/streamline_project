@@ -1,4 +1,4 @@
-import { init as initProfileManager, unhideProfile,availableProfiles, assignProfile, deleteOrHideProfile, loadAssignments, handleProfileUpload , verifyProfileChange, renameProfile } from './profileManager.js';
+import { init as initProfileManager, unhideProfile,availableProfiles, assignProfile, setActiveProfile, deleteOrHideProfile, loadAssignments, handleProfileUpload , verifyProfileChange, renameProfile } from './profileManager.js';
 import { openDB } from './idb.js';
 import { logger } from './logger.js';
 import { initResizablePanels, showToast, initFullscreenHandler } from './ui.js';
@@ -368,6 +368,8 @@ async function handleConfirm() {
         return;
     }
     const profile = profileRecord.profile;
+    const savedGrind = profileRecord.metadata?.grinderSetting ?? null;
+    const grindContext = savedGrind != null ? { grinderSetting: savedGrind } : { grinderSetting: null };
 
     logger.info(`Confirming and sending profile: ${profile.title}`);
     try {
@@ -375,39 +377,45 @@ async function handleConfirm() {
         const pendingAssignmentIndex = sessionStorage.getItem('pendingAssignmentIndex');
 
         if (pendingAssignmentIndex !== null) {
-            // Import the assignProfile function from profileManager
+            const parsedIndex = parseInt(pendingAssignmentIndex);
+            if (parsedIndex < 0 || parsedIndex >= FAV_COUNT) {
+                logger.error(`Invalid pendingAssignmentIndex ${parsedIndex} from sessionStorage - must be between 0 and ${FAV_COUNT - 1}. Skipping assignment.`);
+                sessionStorage.removeItem('pendingAssignmentIndex');
+                showToast('Invalid favorite button. Please try again.', 3000, 'error');
+            } else {
+                // Assign the profile to the specific favorite button
+                await assignProfile(parsedIndex, selectedProfileKey);
 
+                // Clear the pending assignment
+                sessionStorage.removeItem('pendingAssignmentIndex');
 
-            // Assign the profile to the specific favorite button
-            await assignProfile(parseInt(pendingAssignmentIndex), selectedProfileKey);
-
-            // Clear the pending assignment
-            sessionStorage.removeItem('pendingAssignmentIndex');
-
-            // Show a success message
-            setTimeout(() => showToast(`Profile assigned to Favorite ${parseInt(pendingAssignmentIndex) + 1}`, 3000, 'success'), 1000  );
+                // Show a success message
+                setTimeout(() => showToast(`Profile assigned to Favorite ${parsedIndex + 1}`, 3000, 'success'), 1000  );
+            }
         }
 
         // Update workflow with profile's target weight before sending the profile
         // This ensures that the target weight from the profile is applied to the workflow
         if (profile.target_weight) {
             const workflowUpdate = {
-                profile: profile,
-                doseData: {
-                    doseIn: profile.dose_weight || 18, // Default to 18g if not specified
-                    doseOut: parseFloat(profile.target_weight) // Use the profile's target weight
+                profile,
+                context: {
+                    targetDoseWeight: profile.dose_weight || 18,
+                    targetYield: parseFloat(profile.target_weight),
+                    ...grindContext
                 }
             };
-            
+
             sentworkflow = await updateWorkflow(workflowUpdate);
         } else {
             // Just update with the profile if no target weight is specified
-            sentworkflow = await updateWorkflow({ profile: profile });
+            sentworkflow = await updateWorkflow({ profile, context: { ...grindContext } });
         }
 
         const verified = sentworkflow.profile.title === profile.title;
         if (verified) {
             logger.info('Profile sent and verified. Navigating to main page.');
+            setActiveProfile(selectedProfileKey);
             showToast(`Profile Set`, 3000, 'success');
             loadPage('index.html');
         } else {
@@ -608,6 +616,8 @@ function renderProfiles() {
 async function initFavoriteButtons() {
     await loadAssignments();
 
+    favoriteButtons = [];
+
     for (let i = 0; i < FAV_COUNT; i++) {
         const button = document.getElementById(`assign-fav-btn-${i}`);
         if (button) {
@@ -618,23 +628,23 @@ async function initFavoriteButtons() {
     favoriteButtons.forEach((button, index) => {
         let pressTimer = null;
 
-        const startPress = () => {
+        const startPress = async () => {
+            if (index < 0 || index >= FAV_COUNT) {
+                logger.error(`Invalid button index ${index} in initFavoriteButtons startPress - must be between 0 and ${FAV_COUNT - 1}`);
+                return;
+            }
             clearTimeout(pressTimer);
             showToast(`Hold to assign profile.`, 1500, 'info');
             pressTimer = setTimeout(async () => {
                 if (selectedProfileKey) {
                     try {
                         await assignProfile(index, selectedProfileKey);
-                        const profileRecord = availableProfiles[selectedProfileKey];
-                        if (profileRecord && profileRecord.profile) {
-                            showToast(`Assigned '${profileRecord.profile.title}' to favorite ${index + 1}`, 3000, 'success');
-                        }
                     } catch (e) {
-                       logger.warn('Caught expected error from assignProfile modal close:', e.message);
-                       const profileRecord = availableProfiles[selectedProfileKey];
-                       if (profileRecord && profileRecord.profile) {
-                           showToast(`Assigned '${profileRecord.profile.title}' to favorite ${index + 1}`, 3000, 'success');
-                       }
+                        logger.warn('Caught expected error from assignProfile modal close:', e.message);
+                    }
+                    const profileRecord = availableProfiles[selectedProfileKey];
+                    if (profileRecord && profileRecord.profile) {
+                        showToast(`Assigned '${profileRecord.profile.title}' to favorite ${index + 1}`, 3000, 'success');
                     }
                 } else {
                     showToast('Please select a profile from the list to assign it.', 3000, 'error');

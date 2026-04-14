@@ -313,7 +313,7 @@ const fieldConfig = {
     'dose-in': { title: 'DOSE', unit: 'g', defaultValue: '20', label: 'Input value between 1–120' },
     'drink-out': { title: 'DRINK OUT', unit: 'g', defaultValue: '40', label: 'Input value between 1–200' },
     'temperature': { title: 'TEMPERATURE', unit: '°c', defaultValue: '93', label: 'Input value between 70–110' },
-    'grind': { title: 'GRIND', unit: '', defaultValue: '1.0', label: 'Input value between 0.1–10.0' },
+    'grind': { title: 'GRIND', unit: '', defaultValue: '1', label: 'Input value between 0–9999' },
     'steam-duration': { title: 'STEAM DURATION', unit: 's', defaultValue: '30', label: 'Input value between 1–120' },
     'steam-flow': { title: 'STEAM FLOW', unit: 'ml/s', defaultValue: '1.0', label: 'Input value between 0.1–10.0' },
     'flush': { title: 'FLUSH', unit: 's', defaultValue: '5', label: 'Input value between 1–60' },
@@ -432,7 +432,7 @@ async function openModal(inputElement, options = {}) {
             const innerComputed = window.getComputedStyle(innerContent);
             console.log('[DEBUG] Inner wrapper rect - width:', innerRect.width, 'height:', innerRect.height);
             console.log('[DEBUG] Inner wrapper transform:', innerComputed.transform);
-            console.log('[DEBUG] getDesignScale() returned:', designScale);
+            console.log('[DEBUG] getDesignScale() returned:', getDesignScale());
         }
         
         // Log scaled-content transform

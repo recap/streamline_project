@@ -1,6 +1,6 @@
 import { logger } from './logger.js';
-import { updateWorkflow,sendProfile, getWorkflow, getValueFromStore, setValueInStore, getProfiles, deleteProfile, updateProfileVisibility, uploadProfile, updateProfile } from './api.js';
-import { updateProfileName, updateTemperatureDisplay, updateDrinkOut, updateDrinkRatio, updateDoseInDisplay, showToast} from './ui.js';
+import { updateWorkflow,sendProfile, getWorkflow, getValueFromStore, setValueInStore, getProfiles, deleteProfile, updateProfileVisibility, uploadProfile, updateProfile, updateProfileMetadata } from './api.js';
+import { updateProfileName, updateTemperatureDisplay, updateDrinkOut, updateDrinkRatio, updateDoseInDisplay, updateGrindDisplay, showToast} from './ui.js';
 import { openDB, getSetting, setSetting } from './idb.js';
 import { loadPage } from './router.js'; // Singular and correctly formatted import
 import { getTranslation } from './i18n.js';
@@ -51,11 +51,30 @@ const UPLOADED_PROFILES_KEY = 'uploaded-profiles';
 const DEFAULT_PROFILES_KEY = 'default-profiles';
 const DEFAULT_PROFILES_MIGRATED_KEY = 'default-profiles-migrated';
 const PROFILES_CACHE_KEY = 'available-profiles-cache';
-
-
 let favoriteButtons = [];
 export let availableProfiles = {};
-let favoriteAssignments = {};
+export let favoriteAssignments = {};
+let activeProfileId = null;
+
+function validateButtonIndices() {
+    const validAssignments = {};
+    let hasInvalid = false;
+    for (let i = 0; i < FAV_COUNT; i++) {
+        if (favoriteAssignments.hasOwnProperty(i)) {
+            validAssignments[i] = favoriteAssignments[i];
+        }
+    }
+    for (const key of Object.keys(favoriteAssignments)) {
+        if (!Number.isInteger(+key) || +key < 0 || +key >= FAV_COUNT) {
+            hasInvalid = true;
+            logger.warn(`Removing invalid button index: ${key}`);
+        }
+    }
+    if (hasInvalid || Object.keys(validAssignments).length !== Object.keys(favoriteAssignments).length) {
+        favoriteAssignments = validAssignments;
+        logger.info('Validated and normalized button assignments to valid indices (0-' + (FAV_COUNT - 1) + ')');
+    }
+}
 
 // Global flag to prevent duplicate execution of profile updates
 let profileUpdateInProgress = false;
@@ -134,8 +153,10 @@ export async function loadAssignments() {
         if (reaAssignments) {
             logger.info('Loaded assignments from REA store.');
             favoriteAssignments = reaAssignments;
-            // Asynchronously update the local backup to keep it fresh
-            await setSetting(FAVORITES_KEY, reaAssignments);
+            validateButtonIndices();
+            // Save validated data back to REA store AND local backup to prevent stale data on next load
+            await setValueInStore(SETTINGS_NAMESPACE, FAVORITES_KEY, favoriteAssignments);
+            await setSetting(FAVORITES_KEY, favoriteAssignments);
             return favoriteAssignments;
         }
 
@@ -146,8 +167,10 @@ export async function loadAssignments() {
         if (idbAssignments) {
             logger.info('Loaded assignments from IndexedDB backup.');
             favoriteAssignments = idbAssignments;
-            // Data was found locally but not on the server, so let's sync it back up.
-            await saveAssignments();
+            validateButtonIndices();
+            // Save validated data back to REA store AND local backup to prevent stale data on next load
+            await setValueInStore(SETTINGS_NAMESPACE, FAVORITES_KEY, favoriteAssignments);
+            await setSetting(FAVORITES_KEY, favoriteAssignments);
             return favoriteAssignments;
         }
 
@@ -168,6 +191,9 @@ export async function loadAssignments() {
             if (idbAssignments) {
                 logger.info('Successfully loaded from IndexedDB backup during fallback.');
                 favoriteAssignments = idbAssignments;
+                validateButtonIndices();
+                await setValueInStore(SETTINGS_NAMESPACE, FAVORITES_KEY, favoriteAssignments);
+                await setSetting(FAVORITES_KEY, favoriteAssignments);
             } else {
                  // Even the backup failed, so create defaults (but they will only be saved locally for now)
                  logger.warn('IndexedDB backup is also empty. Creating defaults.');
@@ -206,6 +232,25 @@ async function saveAssignments() {
     }
 }
 
+export function setActiveProfile(profileId) {
+    activeProfileId = profileId;
+}
+
+export async function saveGrindToActiveProfile(grindValue) {
+    console.log(`[saveGrindToActiveProfile] grindValue=${grindValue} activeProfileId=${activeProfileId} profileFound=${!!availableProfiles[activeProfileId]}`);
+    if (!activeProfileId || !availableProfiles[activeProfileId]) return;
+    const profileRecord = availableProfiles[activeProfileId];
+    const updatedMetadata = { ...(profileRecord.metadata || {}), grinderSetting: String(grindValue) };
+    try {
+        const updatedRecord = await updateProfileMetadata(activeProfileId, updatedMetadata);
+        availableProfiles[activeProfileId] = updatedRecord;
+        await setSetting(PROFILES_CACHE_KEY, availableProfiles);
+        logger.info(`Saved grind ${grindValue} to profile ${activeProfileId}`);
+    } catch (error) {
+        logger.error('Failed to save grind to profile:', error);
+    }
+}
+
 export function updateButtonUI() {
     for (let i = 0; i < FAV_COUNT; i++) {
         const button = favoriteButtons[i];
@@ -215,9 +260,13 @@ export function updateButtonUI() {
         if (button && profileRecord && profileRecord.profile) {
             const translatedTitle = translateProfileTitle(profileRecord.profile.title);
             button.textContent = translatedTitle || 'Untitled';
+            button.classList.remove('text-white', 'bg-[var(--mimoja-blue-v2)]');
+            button.classList.add('text-[var(--mimoja-blue)]', 'text-[var(--profile-button-text-color)]', 'bg-[var(--profile-button-background-color)]');
         }
         else if (button) {
             button.textContent = '';
+            button.classList.remove('text-white', 'bg-[var(--mimoja-blue-v2)]');
+            button.classList.add('text-[var(--mimoja-blue)]', 'text-[var(--profile-button-text-color)]', 'bg-[var(--profile-button-background-color)]');
         }
     }
 }
@@ -242,6 +291,10 @@ export async function verifyProfileChange(sentProfileTitle, retries = 5, delay =
 }
 
 async function handleProfileClick(index) {
+    if (index < 0 || index >= FAV_COUNT) {
+        logger.error(`Invalid button index ${index} in handleProfileClick - must be between 0 and ${FAV_COUNT - 1}`);
+        return;
+    }
     // Add a unique identifier to track this specific call
     const callId = Date.now() + Math.random();
     logger.info(`handleProfileClick called with index ${index}, callId: ${callId}`);
@@ -283,6 +336,9 @@ async function handleProfileClick(index) {
     const profile = profileRecord.profile;
 
     logger.info(`Sending profile '${profile.title}' to REA (callId: ${callId})...`);
+    let profileSuccessfullySet = false;
+    const savedGrind = profileRecord.metadata?.grinderSetting ?? null;
+    const grindContext = savedGrind != null ? { grinderSetting: savedGrind } : { grinderSetting: null };
     try {
         // Skip the sendProfile call since updateWorkflow can handle sending the profile
         logger.info(`Skipping sendProfile call, using updateWorkflow directly (callId: ${callId})`);
@@ -292,23 +348,22 @@ async function handleProfileClick(index) {
             const workflowUpdate = {
                 profile: profile,
                 context: {
-                    targetDoseWeight: profile.dose_weight || 18, // Default to 18g if not specified
-                    targetYield: parseFloat(profile.target_weight) // Use the profile's target weight
+                    targetDoseWeight: profile.dose_weight || 18,
+                    targetYield: parseFloat(profile.target_weight),
+                    ...grindContext
                 }
             };
-            logger.info(`Calling updateWorkflow with dose data (callId: ${callId})`);
             workflowResponse = await updateWorkflow(workflowUpdate);
             updateDrinkOut(profile.target_weight);
             updateDoseInDisplay(profile.dose_weight || 18);
             updateDrinkRatio();
         } else {
-            // Just update with the profile if no target weight is specified
-            logger.info(`Calling updateWorkflow with profile only (callId: ${callId})`);
-            workflowResponse = await updateWorkflow({ profile: profile });
+            workflowResponse = await updateWorkflow({ profile, context: { ...grindContext } });
         }
 
         // Use the response from updateWorkflow to confirm the profile was set
         if (workflowResponse && workflowResponse.profile && workflowResponse.profile.title === profile.title) {
+            profileSuccessfullySet = true;
             logger.info(`Profile successfully set (callId: ${callId})`);
             const translatedTitle = translateProfileTitle(profile.title);
             updateProfileName(translatedTitle);
@@ -316,17 +371,28 @@ async function handleProfileClick(index) {
                 updateTemperatureDisplay(profile.steps[0].temperature);
             }
 
+            if (savedGrind != null) {
+                updateGrindDisplay({ grinderSetting: savedGrind });
+            } else {
+                const grindEl = document.getElementById('grind-value');
+                if (grindEl) grindEl.textContent = '0';
+            }
+
+            activeProfileId = profileKey;
+
             favoriteButtons.forEach((btn, i) => {
                 const activeBgClass = 'bg-[var(--mimoja-blue-v2)]';
                 const activeTextClass = 'text-white';
                 const inactiveTextClass = 'text-[var(--mimoja-blue)]';
+                const defaultTextClass = 'text-[var(--profile-button-text-color)]';
+                const defaultBgClass = 'bg-[var(--profile-button-background-color)]';
 
                 if (i === index) {
                     btn.classList.add(activeBgClass, activeTextClass);
-                    btn.classList.remove(inactiveTextClass);
+                    btn.classList.remove(inactiveTextClass, defaultTextClass, defaultBgClass);
                 } else {
                     btn.classList.remove(activeBgClass, activeTextClass);
-                    btn.classList.add(inactiveTextClass);
+                    btn.classList.add(inactiveTextClass, defaultTextClass, defaultBgClass);
                 }
             });
         } else {
@@ -338,16 +404,22 @@ async function handleProfileClick(index) {
     } finally {
         // Always reset the flag in the finally block to ensure it gets reset even if there's an error
         profileUpdateInProgress = false;
-        // Remove the waiting state from the button and restore original background
+        // Remove the waiting state from the button and restore original background only on failure
         if (button) {
             button.classList.remove('bg-[var(--fav-button-wait)]');
-            button.classList.add('bg-[var(--profile-button-background-color)]');
+            if (!profileSuccessfullySet) {
+                button.classList.add('bg-[var(--profile-button-background-color)]');
+            }
         }
         logger.info(`handleProfileClick completed (callId: ${callId}), reset profileUpdateInProgress flag`);
     }
 }
 
 export async function assignProfile(buttonIndex, profileKey) {
+    if (buttonIndex < 0 || buttonIndex >= FAV_COUNT) {
+        logger.error(`Invalid button index ${buttonIndex} passed to assignProfile - must be between 0 and ${FAV_COUNT - 1}`);
+        return;
+    }
     logger.info(`Assigning profile '${profileKey}' to button ${buttonIndex}`);
     favoriteAssignments[buttonIndex] = profileKey;
     await saveAssignments();
@@ -381,6 +453,10 @@ function openProfileSelectionModal(buttonIndex) {
 }
 
 async function handleDoubleClick(index) {
+    if (index < 0 || index >= FAV_COUNT) {
+        logger.error(`Invalid button index ${index} in handleDoubleClick - must be between 0 and ${FAV_COUNT - 1}`);
+        return;
+    }
     if (favoriteAssignments[index]) {
         logger.info(`Double-click on assigned button ${index}. Clearing assignment.`);
         favoriteAssignments[index] = null;
@@ -394,6 +470,10 @@ async function handleDoubleClick(index) {
 }
 
 async function handleLongPress(index) {
+    if (index < 0 || index >= FAV_COUNT) {
+        logger.error(`Invalid button index ${index} in handleLongPress - must be between 0 and ${FAV_COUNT - 1}`);
+        return;
+    }
     const isAssigned = favoriteAssignments[index];
 
     if (isAssigned) {

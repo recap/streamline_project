@@ -612,6 +612,16 @@ export async function updateProfile(profileId, profileData) {
     return response.json();
 }
 
+export async function updateProfileMetadata(profileId, metadata) {
+    const response = await fetch(`${API_BASE_URL}/profiles/${profileId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metadata }),
+    });
+    if (!response.ok) throw new Error(`Failed to update profile metadata ${profileId}`);
+    return response.json();
+}
+
 export async function getProfile() {
     const response = await fetch(`${API_BASE_URL}/workflow`, { targetAddressSpace: 'local' });
     if (!response.ok) {

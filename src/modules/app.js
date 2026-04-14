@@ -596,33 +596,54 @@ async function loadInitialData() {
                         
                         logger.debug(`Assigned profile record for button ${i}: `, assignedProfileRecord);
                         
-                        if (assignedProfileRecord && assignedProfileRecord.profile && 
+if (assignedProfileRecord && assignedProfileRecord.profile &&
                             assignedProfileRecord.profile.title === profile.title) {
                             // This button has the active profile assigned to it
+                            // Sync activeProfileId so saveGrindToActiveProfile works after page load/refresh
+                            profileManagerModule.setActiveProfile(assignedProfileKey);
+                            logger.info(`Synced activeProfileId to ${assignedProfileKey} for profile "${profile.title}"`);
                             const activeBgClass = 'bg-[var(--mimoja-blue-v2)]';
                             const activeTextClass = 'text-white';
                             const inactiveTextClass = 'text-[var(--mimoja-blue)]';
-                            
-                            logger.info(`Marking button at index ${i} as active for profile "${profile.title}".`);
+                            const defaultTextClass = 'text-[var(--profile-button-text-color)]';
+                            const defaultBgClass = 'bg-[var(--profile-button-background-color)]';
+
+                            logger.info(`Marking button at index ${i} as active for profile ${profile.title}. Adding: ${activeBgClass}, ${activeTextClass}. Removing: ${inactiveTextClass}. Current classes: ${button.className}`);
+                            console.log(`[text-white APPLY] btn=${i} path=assignment-match profile="${profile.title}" assignedTitle="${assignedProfileRecord.profile.title}" alreadyHasTextWhite=${button.classList.contains('text-white')}`);
                             button.classList.add(activeBgClass, activeTextClass);
-                            button.classList.remove(inactiveTextClass);
+                            button.classList.remove(inactiveTextClass, defaultTextClass, defaultBgClass);
+                            logger.info(`Button ${i} classes after change: ${button.className}`);
                         } else {
                             // This button doesn't have the active profile, ensure it's not highlighted
                             const activeBgClass = 'bg-[var(--mimoja-blue-v2)]';
                             const activeTextClass = 'text-white';
                             const inactiveTextClass = 'text-[var(--mimoja-blue)]';
-                            
+                            const defaultTextClass = 'text-[var(--profile-button-text-color)]';
+                            const defaultBgClass = 'bg-[var(--profile-button-background-color)]';
+
+                            logger.info(`Marking button ${i} as inactive. Removing: ${activeBgClass}, ${activeTextClass}. Adding: ${inactiveTextClass}. Current classes: ${button.className}`);
+                            if (button.classList.contains('text-white')) {
+                                console.log(`[text-white REMOVE] btn=${i} path=assignment-mismatch activeProfile="${profile.title}" assignedTitle="${assignedProfileRecord?.profile?.title}"`);
+                            }
                             button.classList.remove(activeBgClass, activeTextClass);
-                            button.classList.add(inactiveTextClass);
+                            button.classList.add(inactiveTextClass, defaultTextClass, defaultBgClass);
+                            logger.info(`Button ${i} classes after change: ${button.className}`);
                         }
                     } else if (button) {
                         // Button exists but no profile assigned, ensure it's not highlighted
                         const activeBgClass = 'bg-[var(--mimoja-blue-v2)]';
                         const activeTextClass = 'text-white';
                         const inactiveTextClass = 'text-[var(--mimoja-blue)]';
-                        
+                        const defaultTextClass = 'text-[var(--profile-button-text-color)]';
+                        const defaultBgClass = 'bg-[var(--profile-button-background-color)]';
+
+                        logger.info(`Button ${i} has no assignment. Removing: ${activeBgClass}, ${activeTextClass}. Adding: ${inactiveTextClass}. Current classes: ${button.className}`);
+                        if (button.classList.contains('text-white')) {
+                            console.log(`[text-white REMOVE] btn=${i} path=no-assignment activeProfile="${profile.title}"`);
+                        }
                         button.classList.remove(activeBgClass, activeTextClass);
-                        button.classList.add(inactiveTextClass);
+                        button.classList.add(inactiveTextClass, defaultTextClass, defaultBgClass);
+                        logger.info(`Button ${i} classes after change: ${button.className}`);
                     }
                 }
             } else {
@@ -633,18 +654,27 @@ async function loadInitialData() {
                     const activeBgClass = 'bg-[var(--mimoja-blue-v2)]';
                     const activeTextClass = 'text-white';
                     const inactiveTextClass = 'text-[var(--mimoja-blue)]';
+                    const defaultTextClass = 'text-[var(--profile-button-text-color)]';
+                    const defaultBgClass = 'bg-[var(--profile-button-background-color)]';
                     const buttonText = btn.textContent.trim();
                     const profileTitle = profile.title;
-                    
-                    logger.debug(`Checking button ${index} with text: "${buttonText}" against profile: "${profileTitle}"`);
-                    
+
+                    logger.debug(`Checking button ${index} with text: \"${buttonText}\" against profile: \"${profileTitle}\"`);
+
                     if (buttonText === profileTitle) {
-                        logger.info((`Marking button "${buttonText}" as active for profile "${profileTitle}".`));
+                        logger.info(`[FALLBACK] Marking button ${index} as active for profile ${profileTitle}. Adding: bg-[var(--mimoja-blue-v2)], text-white. Current classes: ${btn.className}`);
+                        console.log(`[text-white APPLY] btn=${index} path=fallback-text-match buttonText="${buttonText}" profile="${profileTitle}" alreadyHasTextWhite=${btn.classList.contains('text-white')}`);
                         btn.classList.add(activeBgClass, activeTextClass);
-                        btn.classList.remove(inactiveTextClass);
+                        btn.classList.remove(inactiveTextClass, defaultTextClass, defaultBgClass);
+                        logger.info(`[FALLBACK] Button ${index} classes after change: ${btn.className}`);
                     } else {
+                        logger.info(`[FALLBACK] Marking button ${index} as inactive. Removing: bg-[var(--mimoja-blue-v2)], text-white. Adding: text-[var(--mimoja-blue)]. Current classes: ${btn.className}`);
+                        if (btn.classList.contains('text-white')) {
+                            console.log(`[text-white REMOVE] btn=${index} path=fallback-text-mismatch buttonText="${buttonText}" activeProfile="${profileTitle}"`);
+                        }
                         btn.classList.remove(activeBgClass, activeTextClass);
-                        btn.classList.add(inactiveTextClass);
+                        btn.classList.add(inactiveTextClass, defaultTextClass, defaultBgClass);
+                        logger.info(`[FALLBACK] Button ${index} classes after change: ${btn.className}`);
                     }
                 });
             }
@@ -665,6 +695,9 @@ async function loadInitialData() {
             ui.updateGrindDisplay({ grinderSetting: context.grinderSetting });
         } else if (grinderData?.setting) {
             ui.updateGrindDisplay(grinderData);
+        } else {
+            const grindEl = document.getElementById('grind-value');
+            if (grindEl) grindEl.textContent = '0';
         }
         logger.debug("Dose data received:", context || doseData);
         
@@ -787,6 +820,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             logger.info('App DOMContentLoaded: Awaiting Profile Manager module...');
             await profileManager.init();
+            window.app.saveGrindToActiveProfile = (val) => profileManager.saveGrindToActiveProfile(val);
             logger.info('App DOMContentLoaded: Profile Manager module finished.');
 
             logger.info('App DOMContentLoaded: Awaiting initial data...');

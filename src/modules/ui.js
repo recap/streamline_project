@@ -153,6 +153,7 @@ export function updateGrindValue(newValue) {
     }).catch(error => {
         logger.error('Failed to update grind value:', error);
     });
+    window.app?.saveGrindToActiveProfile?.(parseFloat(newValue).toFixed(2));
 }
 
 function updateflushValue(newValue) {
@@ -359,12 +360,13 @@ function toggleHotWaterMode() {
 function setupValueAdjuster(minusBtnId, plusBtnId, valueElId, step, min, formatter, onUpdate) {
     const minusBtn = document.getElementById(minusBtnId);
     const plusBtn = document.getElementById(plusBtnId);
-    const valueEl = document.getElementById(valueElId);
 
-    if (!minusBtn || !plusBtn || !valueEl) return;
+    if (!minusBtn || !plusBtn || !document.getElementById(valueElId)) return;
 
     minusBtn.addEventListener('click', (e) => {
         flashPlusMinusButton(e.currentTarget);
+        const valueEl = document.getElementById(valueElId);
+        if (!valueEl) return;
         let currentValue = parseFloat(valueEl.textContent);
         if (currentValue > min) {
             currentValue -= step;
@@ -375,6 +377,8 @@ function setupValueAdjuster(minusBtnId, plusBtnId, valueElId, step, min, formatt
 
     plusBtn.addEventListener('click', (e) => {
         flashPlusMinusButton(e.currentTarget);
+        const valueEl = document.getElementById(valueElId);
+        if (!valueEl) return;
         let currentValue = parseFloat(valueEl.textContent);
         currentValue += step;
         valueEl.textContent = formatter(currentValue);
@@ -989,15 +993,15 @@ export function initUI(callbacks) {
     if (grindValueEl) {
         makeEditable(grindValueEl, (newValue) => {
             let value = newValue;
-            if (value > 1000) {
-                alert('Grind setting is limited to 1000.');
-                value = 1000;
+            if (value > 9999) {
+                alert('Grind setting is limited to 9999.');
+                value = 9999;
             }
             if (value < 0) {
                 alert('Grind setting must be at least 0.');
                 value = 0;
             }
-            grindValueEl.textContent = value.toFixed(1);
+            grindValueEl.textContent = Number.isInteger(value) ? String(value) : value.toFixed(1);
             updateGrindValue(value);
         });
     }
@@ -1595,7 +1599,8 @@ export function updateGrindDisplay(grinderData) {
     // Prefer grinderSetting over setting (context takes precedence)
     const grindValue = grinderData?.grinderSetting ?? grinderData?.setting;
     if (grindValueEl && grindValue !== undefined) {
-        grindValueEl.textContent = parseFloat(grindValue).toFixed(1);
+        const parsed = parseFloat(grindValue);
+        grindValueEl.textContent = Number.isInteger(parsed) ? String(parsed) : parsed.toFixed(1);
     }
 }
 
