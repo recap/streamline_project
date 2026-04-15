@@ -1,4 +1,4 @@
-import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow } from '../modules/api.js';
+import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow } from '../modules/api.js';
 import * as ui from '../modules/ui.js';
 import { initScaling } from '../modules/scaling.js';
 import { getSupportedLanguages, getCurrentLanguage, setLanguage } from '../modules/i18n.js';
@@ -135,13 +135,13 @@ const settingsTree = {
     'calibration': {
         name: 'Calibration',
         subcategories: [
-            { id: 'defaultloadsettings', name: 'Default load settings', settingsCategory: 'calibration' },
-            { id: 'refillkit', name: 'Refill Kit', settingsCategory: 'calibration' },
-            { id: 'voltage', name: 'Voltage', settingsCategory: 'calibration' },
-            { id: 'fan', name: 'Fan', settingsCategory: 'de1' },
-            { id: 'stopatweight', name: 'Stop at weight', settingsCategory: 'de1' },
-            { id: 'slowstart', name: 'Slow start', settingsCategory: 'de1' },
-            { id: 'steam', name: 'Steam', settingsCategory: 'steam' }
+            { id: 'defaultloadsettings', name: 'Default load settings', settingsCategory: 'calib_defaultload' },
+            { id: 'refillkit',           name: 'Refill Kit',            settingsCategory: 'calib_refillkit' },
+            { id: 'voltage',             name: 'Voltage',               settingsCategory: 'calib_voltage' },
+            { id: 'fan',                 name: 'Fan',                   settingsCategory: 'calib_fan' },
+            { id: 'stopatweight',        name: 'Stop at weight',        settingsCategory: 'calib_stopatweight' },
+            { id: 'slowstart',           name: 'Slow start',            settingsCategory: 'calib_slowstart' },
+            { id: 'steam',               name: 'Steam',                 settingsCategory: 'calib_steam' }
         ]
     },
     'machine': {
@@ -154,8 +154,8 @@ const settingsTree = {
     'maintenance': {
         name: 'Maintenance',
         subcategories: [
-            { id: 'machinedescaling', name: 'Machine Descaling', settingsCategory: 'maintenance' },
-            { id: 'transportmode', name: 'Transport mode', settingsCategory: 'maintenance' }
+            { id: 'machinedescaling', name: 'Machine Descaling', settingsCategory: 'maint_descaling' },
+            { id: 'transportmode',    name: 'Transport mode',    settingsCategory: 'maint_transport' }
         ]
     },
     'skin': {
@@ -368,6 +368,7 @@ export function renderSettingsContent(category) {
         case 'flush':
         case 'steam':
         case 'hotwater':
+        case 'calib_fan':
             isLoading = settingsCache.de1Loading;
             error = settingsCache.de1Error;
             break;
@@ -398,7 +399,8 @@ export function renderSettingsContent(category) {
         category === 'flush' ||
         category === 'steam' ||
         category === 'hotwater' ||
-        category === 'de1advanced'
+        category === 'de1advanced' ||
+        category === 'calib_fan'
     )) {
         return renderErrorState(getCategoryTitle(category), error);
     }
@@ -423,18 +425,24 @@ export function renderSettingsContent(category) {
             return renderBluetoothScaleSettings();
         case 'ble_machine':
             return renderBluetoothMachineSettings();
-        case 'calibration':
-        case 'defaultloadsettings':
-        case 'refillkit':
-        case 'voltage':
-        case 'fan':
-        case 'stopatweight':
-        case 'slowstart':
-            return renderCalibrationSettings();
-        case 'maintenance':
-        case 'machinedescaling':
-        case 'transportmode':
-            return renderMaintenanceSettings();
+        case 'calib_fan':
+            return renderCalibFanSettings(settingsCache.de1);
+        case 'calib_defaultload':
+            return renderCalibDefaultLoadSettings();
+        case 'calib_refillkit':
+            return renderCalibRefillKitSettings();
+        case 'calib_voltage':
+            return renderCalibVoltageSettings();
+        case 'calib_stopatweight':
+            return renderCalibStopAtWeightSettings();
+        case 'calib_slowstart':
+            return renderCalibSlowStartSettings();
+        case 'calib_steam':
+            return renderCalibSteamSettings();
+        case 'maint_descaling':
+            return renderMainDescalingSettings();
+        case 'maint_transport':
+            return renderMainTransportSettings();
         case 'skin':
         case 'appearance':
             return renderSkinSettings();
@@ -2033,164 +2041,35 @@ export function renderQuickAdjustmentsSettings() {
 }
 
 // Render calibration settings with additional subcategories
-export function renderCalibrationSettings() {
+export function renderCalibFanSettings(settings) {
+    const fanValue = settings?.fan !== undefined ? settings.fan : '';
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Calibration Settings</p>
+                <p class="leading-[1.2]">Fan Threshold Settings</p>
             </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
             <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Default Load Settings</p>
-                        </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold">
-                            Reset
-                        </button>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Reset to default calibration values
-                    </p>
-                </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Refill Kit</p>
-                        </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold">
-                            Calibrate
-                        </button>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Calibrate refill kit settings
-                    </p>
-                </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Voltage</p>
+                            <p id="calib-fan-label" class="leading-[1.2]">Fan Threshold (°C)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="120" step="0.1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
+                            <input type="number" id="calibFanInput" aria-labelledby="calib-fan-label"
+                                   class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                                   value="${fanValue}" step="1" min="0" max="100">
+                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                                    aria-label="Save fan threshold"
+                                    onclick="window.updateDe1Setting('fan', parseInt(document.getElementById('calibFanInput').value))">
                                 Save
                             </button>
                         </div>
                     </div>
                     <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Set voltage calibration
-                    </p>
-                </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Fan</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="65" step="1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Set fan threshold temperature
-                    </p>
-                </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Stop at Weight</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="36" step="0.1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Set weight target for stopping shots
-                    </p>
-                </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Slow Start</p>
-                        </div>
-                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
-                            <option>Enabled</option>
-                            <option>Disabled</option>
-                        </select>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Enable slow start for smoother extraction
-                    </p>
-                </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Steam</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="120" step="1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Set steam calibration
+                        Temperature threshold at which the fan turns on
                     </p>
                 </div>
             </div>
@@ -2198,13 +2077,192 @@ export function renderCalibrationSettings() {
     `;
 }
 
-// Render maintenance settings with additional subcategories
-export function renderMaintenanceSettings() {
+export function renderCalibDefaultLoadSettings() {
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Maintenance Settings</p>
+                <p class="leading-[1.2]">Default Load Settings</p>
             </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Default Load Settings</p>
+                        </div>
+                        <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                            Reset
+                        </button>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderCalibRefillKitSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Refill Kit</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Refill Kit</p>
+                        </div>
+                        <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                            Calibrate
+                        </button>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderCalibVoltageSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Voltage</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Voltage</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <input type="number" disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center cursor-not-allowed" value="120" step="0.1">
+                            <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderCalibStopAtWeightSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Stop at Weight</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Stop at Weight</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <input type="number" disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center cursor-not-allowed" value="36" step="0.1">
+                            <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderCalibSlowStartSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Slow Start</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Slow Start</p>
+                        </div>
+                        <select disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2 cursor-not-allowed">
+                            <option>Enabled</option>
+                            <option>Disabled</option>
+                        </select>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderCalibSteamSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Steam Calibration</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Steam Calibration</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <input type="number" disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center cursor-not-allowed" value="120" step="1">
+                            <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderMainDescalingSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Machine Descaling</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
             <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
@@ -2212,7 +2270,8 @@ export function renderMaintenanceSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Machine Descaling</p>
                         </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold">
+                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                                onclick="window.startDescaling()">
                             Start
                         </button>
                     </div>
@@ -2221,25 +2280,32 @@ export function renderMaintenanceSettings() {
                     </p>
                 </div>
             </div>
+        </div>
+    `;
+}
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
+export function renderMainTransportSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Transport Mode</p>
             </div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full">
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Transport Mode</p>
                         </div>
-                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
+                        <select disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2 cursor-not-allowed">
                             <option>Disabled</option>
                             <option>Enabled</option>
                         </select>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Enable transport mode for safe transportation
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
+                        Not supported by current firmware API
                     </p>
                 </div>
             </div>
@@ -3054,6 +3120,17 @@ export async function initializeSettings() {
     window.updateReaSetting = updateReaSetting;
     window.updateDe1Setting = updateDe1Setting;
     window.updateDe1AdvancedSetting = updateDe1AdvancedSetting;
+
+    window.startDescaling = async function() {
+        if (!confirm('Start descaling cycle? The machine will run the descaling program. Make sure the descaling solution is prepared.')) return;
+        try {
+            await setMachineState('descaling');
+            ui.showToast('Descaling cycle started', 3000, 'success');
+        } catch (error) {
+            logger.error('Error starting descaling:', error);
+            ui.showToast(`Failed to start descaling: ${error.message}`, 5000, 'error');
+        }
+    };
     window.updateSteamSetting = updateSteamSetting;
     window.updateHotWaterSetting = updateHotWaterSetting;
     window.flashPlusMinusButton = ui.flashPlusMinusButton;

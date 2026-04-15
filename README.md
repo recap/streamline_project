@@ -72,12 +72,15 @@ A modern web UI skin for the Decent Espresso DE1, built on top of [Streamline-Br
 
 ### Settings — Unimplemented Functions
 - [ ] Quick Adjustments: Flow Multiplier, Steam, Water, Limit save buttons
-- [ ] Calibration: Reset defaults, Refill Kit calibrate, Voltage / Fan / Stop-at-Weight / Steam save, Slow Start dropdown
-- [ ] Maintenance: Descaling Start, Transport Mode dropdown
+- [ ] Calibration: Reset defaults, Refill Kit calibrate, Voltage / Stop-at-Weight / Steam save, Slow Start dropdown (not supported by firmware API)
+- [x] Calibration: Fan threshold save
+- [ ] Maintenance: Transport Mode dropdown (not supported by firmware API)
+- [x] Maintenance: Descaling Start
 - [ ] Skin: Theme toggle, Skin Apply button
-- [ ] Miscellaneous: Screen Saver, Units, Font Size, Resolution, Smart Charging dropdowns
+- [ ] Miscellaneous: Screen Saver, Units, Font Size, Resolution dropdowns
+- [x] Miscellaneous: Smart Charging — full settings page with mode selector, night mode schedule, and live charging status
 - [ ] Updates: Firmware Check, App Update Check buttons
-- [ ] Bluetooth: Machine auto-connect (scale auto-connect already works)
+- [x] Bluetooth: Machine auto-connect toggle (scale auto-connect already works)
 
 ### Features
 - [ ] Advanced in-browser profile editor (create and edit profiles, not just upload/delete)

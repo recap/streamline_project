@@ -1112,6 +1112,7 @@ export function initUI(callbacks) {
 
     if (hotWaterModeToggle) {
         hotWaterModeToggle.addEventListener('click', toggleHotWaterMode);
+        hotWaterModeToggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleHotWaterMode(); } });
     }
 
     if (steamMinusBtn) {
@@ -1124,6 +1125,7 @@ export function initUI(callbacks) {
 
     if (steamModeToggle) {
         steamModeToggle.addEventListener('click', toggleSteamMode);
+        steamModeToggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSteamMode(); } });
     }
 
     updateDrinkRatio(); // Initial calculation

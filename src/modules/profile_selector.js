@@ -1176,6 +1176,30 @@ export async function initializeProfileSelector() {
     initSearchButton();
     console.log('initializeProfileSelector: Initializing fullscreen handler');
     initFullscreenHandler();
+
+    const editTitleBtn = document.getElementById('edit_profile_title');
+    if (editTitleBtn) {
+        const handleRenameProfile = async () => {
+            if (!selectedProfileKey) {
+                showToast("No profile selected to rename.", 3000, 'error');
+                return;
+            }
+            const profileRecord = availableProfiles[selectedProfileKey];
+            if (!profileRecord || !profileRecord.profile) return;
+            const currentTitle = profileRecord.profile.title || '';
+            const newTitle = prompt('Enter new profile name:', currentTitle);
+            if (!newTitle || newTitle.trim() === '' || newTitle.trim() === currentTitle) return;
+            try {
+                await renameProfile(selectedProfileKey, newTitle.trim());
+                showToast(`Profile renamed to "${newTitle.trim()}"`, 3000, 'success');
+            } catch (err) {
+                showToast('Failed to rename profile.', 3000, 'error');
+            }
+        };
+        editTitleBtn.addEventListener('click', handleRenameProfile);
+        editTitleBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRenameProfile(); } });
+    }
+
     console.log('initializeProfileSelector: Initialization complete');
 }
 
