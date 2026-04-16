@@ -112,10 +112,6 @@ export function initScaling() {
             scale = screenWidth / designWidth;
         }
 
-        // Apply minimum scale to prevent excessive zooming out
-        const minScale = 0.5; // Prevent scaling too far out
-        scale = Math.max(scale, minScale);
-
         // Explicitly set content dimensions to original design dimensions
         content.style.width = `${designWidth}px`;
         content.style.height = `${designHeight}px`;
@@ -139,15 +135,12 @@ export function initScaling() {
         // Additional check to prevent zooming in too much on high-resolution displays
         const maxScale = 1.5; // Limit maximum zoom to 1.5x
         if (scale > maxScale) {
-            // Recalculate with max scale applied
-            if (screenAspectRatio > designAspectRatio) {
-                scale = maxScale;
-            } else {
-                scale = maxScale;
-            }
-            
-            // Reapply the transform with the limited scale
-            content.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
+            scale = maxScale;
+            const clampedScaledWidth = designWidth * scale;
+            const clampedScaledHeight = designHeight * scale;
+            const clampedOffsetX = (screenWidth - clampedScaledWidth) / 2;
+            const clampedOffsetY = (screenHeight - clampedScaledHeight) / 2;
+            content.style.transform = `scale(${scale}) translate(${clampedOffsetX / scale}px, ${clampedOffsetY / scale}px)`;
         }
     }
 
