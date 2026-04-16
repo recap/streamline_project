@@ -547,13 +547,11 @@ function toggleSteamMode() {
 export function initThemeToggle() {
     const themeToggle = document.getElementById('theme-toggle');
     if (!themeToggle) return;
-    const btn = document.querySelector('.togglebtn-change');
-    if (!btn) return;
 
     const applyTheme = (theme) => {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
-        
+
         // Dynamically import the chart module and apply theme if chart element exists
         if (document.getElementById('plotly-chart')) {
             import('./chart.js').then((chartModule) => {
@@ -561,15 +559,6 @@ export function initThemeToggle() {
             }).catch(error => {
                 console.error('Error importing chart module:', error);
             });
-        }
-
-        if (theme === 'dark') {
-            btn.style.setProperty('--bg--togglebtn', '#FFFFFF'); //
-            btn.style.setProperty('--btn-togglebgcolor', '#959595'); //
-
-        } else {
-            btn.style.setProperty('--bg--togglebtn', '#121212'); //
-            btn.style.setProperty('--btn-togglebgcolor', '#FFFFFF'); //
         }
     };
 

@@ -422,7 +422,7 @@ export function renderSettingsContent(category) {
             return renderFlushSettingsForm(settingsCache.de1);
      
         case 'ble_scale':
-            return renderBluetoothScaleSettings();
+            return renderBluetoothScaleSettings(settingsCache.rea);
         case 'ble_machine':
             return renderBluetoothMachineSettings();
         case 'calib_fan':
@@ -665,29 +665,6 @@ export function renderReaSettingsForm(settings) {
                 </div>
             </div>
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
-
-            <div class="flex flex-col items-start relative w-full max-w-full">
-                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
-                    <div class="flex items-center justify-between relative w-full max-w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p id="scale-power-management-label" class="leading-[1.2]">Scale Power Management</p>
-                        </div>
-                        <select id="scalePowerModeSelect" aria-labelledby="scale-power-management-label" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[250px] text-white text-[24px] p-2 max-w-[250px]"
-                                onchange="window.updateReaSetting('scalePowerMode', this.value)">
-                            <option value="disabled" ${settings.scalePowerMode === 'disabled' ? 'selected' : ''}>Disabled</option>
-                            <option value="displayOff" ${settings.scalePowerMode === 'displayOff' ? 'selected' : ''}>Display Off</option>
-                            <option value="disconnect" ${settings.scalePowerMode === 'disconnect' ? 'selected' : ''}>Disconnect</option>
-                        </select>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words">
-                        Controls automatic scale power management when machine sleeps. Display Off: turn off scale display. Disconnect: disconnect scale completely.
-                    </p>
-                </div>
-            </div>
         </div>
     `;
 }
@@ -2327,10 +2304,7 @@ export function renderSkinSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Theme</p>
                         </div>
-                        <div class="btn-status">
-                            <input type="checkbox" name="theme-toggle" id="theme-toggle" class="hidden" />
-                            <label for="theme-toggle" class="togglebtn-change flex items-center  rounded-full w-9 h-[18px] cursor-pointer"></label>
-                        </div>
+                        <input type="checkbox" id="theme-toggle" class="toggle toggle-lg toggle-primary">
                     </div>
                     <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
                         Toggle between light and dark themes
@@ -3910,40 +3884,104 @@ export function renderBluetoothMachineSettings() {
 }
 
 // Render Bluetooth Scale settings
-export function renderBluetoothScaleSettings() {
+export function renderBluetoothScaleSettings(settings) {
     // Render devices from WebSocket cache on initial render
     setTimeout(() => {
         renderDeviceListFromCache();
     }, 0);
 
+    const scalePowerMode = settings?.scalePowerMode ?? 'disabled';
+
     return `
-        <div class="content-stretch justify-evenly gap-[60px] items-start relative w-full">
+        <div class="flex flex-col gap-[60px] items-start relative w-full max-w-full overflow-x-hidden">
+
+            <!-- Header -->
             <div class="flex justify-between items-center w-full">
-                <p class="font-['Inter:Semi_Bold',sans-serif] justify-evenly leading-[0] w-[1124px] not-italic relative text-[var(--text-primary)] text-[36px] text-center">Scale</p>
+                <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] not-italic relative text-[var(--text-primary)] text-[36px]">
+                    <p class="leading-[1.2]">Scale</p>
+                </div>
                 <button id="scan-scale-btn"
-                        class="border-[var(--mimoja-blue)] text-[var(--mimoja-blue)] h-[62px] rounded-[67.5px] border w-[139px] text-[24px]"
+                        class="border-[var(--mimoja-blue)] text-[var(--mimoja-blue)] h-[62px] rounded-[67.5px] border w-[139px] text-[24px] transition-colors duration-200 hover:bg-[var(--mimoja-blue)] hover:text-white"
                         onclick="window.scanForScales()">
                     Scan
                 </button>
             </div>
 
-            <div id="bluetooth-scale-devices-container">
-                <!-- Scale devices will be populated dynamically via WebSocket -->
+            <!-- Divider -->
+            <div class="h-0 relative w-full">
+                <hr class="border-t border-[#c9c9c9] w-full" />
             </div>
 
-            <!-- Auto-connect toggle for scales -->
-            <div class="mt-6 p-4 rounded-[10px]">
+            <!-- Connected Device -->
+            <div class="flex flex-col gap-[20px] items-start relative w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Connected Device</p>
+                </div>
+                <div id="bluetooth-scale-devices-container" class="w-full">
+                    <!-- Scale devices will be populated dynamically via WebSocket -->
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="h-0 relative w-full">
+                <hr class="border-t border-[#c9c9c9] w-full" />
+            </div>
+
+            <!-- Auto-Connect -->
+            <div class="flex flex-col gap-[30px] items-start relative w-full">
                 <div class="flex items-center justify-between w-full">
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 rounded-full bg-green-500 mr-3"></div>
-                        <p class="text-[20px] text-[var(--text-secondary)]">Automatically connect to nearby scales.</p>
+                    <div class="flex flex-col gap-[8px]">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Auto Connect</p>
+                        </div>
+                        <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
+                            Automatically connect to nearby scales.
+                        </p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer justify-self-end-safe">
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
                         <input type="checkbox" id="auto-connect-scale-toggle" class="toggle toggle-info sr-only peer border border-blue-600 bg-white" onclick="window.toggleAutoConnect('scale')">
                         <div class="w-11 h-6 bg-[var(--box-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-blue-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#385a92]"></div>
                     </label>
                 </div>
             </div>
+
+            <!-- Divider -->
+            <div class="h-0 relative w-full">
+                <hr class="border-t border-[#c9c9c9] w-full" />
+            </div>
+
+            <!-- Scale Power Mode -->
+            <div class="flex flex-col gap-[30px] items-start relative w-full">
+                <div class="flex flex-col gap-[8px] items-start relative w-full">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p id="scale-power-management-label" class="leading-[1.2]">Scale Power Mode</p>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words">
+                        Controls scale behaviour when machine sleeps.
+                    </p>
+                </div>
+                <div class="flex items-center " role="group" aria-labelledby="scale-power-management-label">
+                    <button class="h-[120px] w-[295px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[30px] flex items-center justify-center cursor-pointer transition-colors duration-200
+                        ${scalePowerMode === 'disabled' ? 'bg-[var(--mimoja-blue)] text-white' : 'bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] text-[#b6c3d7]'}"
+                        aria-pressed="${scalePowerMode === 'disabled'}"
+                        onclick="window.updateReaSetting('scalePowerMode', 'disabled')">
+                        Disabled
+                    </button>
+                    <button class="h-[120px] w-[295px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[30px] flex items-center justify-center cursor-pointer transition-colors duration-200
+                        ${scalePowerMode === 'displayOff' ? 'bg-[var(--mimoja-blue)] text-white' : 'bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] text-[#b6c3d7]'}"
+                        aria-pressed="${scalePowerMode === 'displayOff'}"
+                        onclick="window.updateReaSetting('scalePowerMode', 'displayOff')">
+                        Display Off
+                    </button>
+                    <button class="h-[120px] w-[295px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[30px] flex items-center justify-center cursor-pointer transition-colors duration-200
+                        ${scalePowerMode === 'disconnect' ? 'bg-[var(--mimoja-blue)] text-white' : 'bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] text-[#b6c3d7]'}"
+                        aria-pressed="${scalePowerMode === 'disconnect'}"
+                        onclick="window.updateReaSetting('scalePowerMode', 'disconnect')">
+                        Disconnect
+                    </button>
+                </div>
+            </div>
+
         </div>
     `;
 }
