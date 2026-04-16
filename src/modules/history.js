@@ -157,7 +157,7 @@ export async function initHistory() {
     const prevBtn = document.getElementById('history-prev-btn');
     const nextBtn = document.getElementById('history-next-btn');
 
-    prevBtn.addEventListener('click', async () => {
+    prevBtn.onclick = async () => {
         if (currentShotIndex < shots.length - 1) {
             displayShot(currentShotIndex + 1);
         } else if (shots.length < totalAvailable) {
@@ -166,13 +166,13 @@ export async function initHistory() {
                 displayShot(currentShotIndex + 1);
             }
         }
-    });
+    };
 
-    nextBtn.addEventListener('click', () => {
+    nextBtn.onclick = () => {
         if (currentShotIndex > 0) {
             displayShot(currentShotIndex - 1);
         }
-    });
+    };
 
     if (shots.length > 0) {
         displayShot(0);
