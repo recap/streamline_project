@@ -862,7 +862,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Check if user is on desktop (Windows or macOS) to determine if we should show fullscreen prompt
         const isDesktop = navigator.userAgent.includes('Win') || navigator.userAgent.includes('Mac');
-        
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                      (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+        const isStandalone = window.navigator.standalone === true;
+
         // Function to determine if we're in fullscreen mode
         // This accounts for both browser fullscreen API and web view fullscreen scenarios
         function isFullscreenMode() {
@@ -901,18 +904,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isDesktop && !isFullscreenMode() && !sessionStorage.getItem('fullscreenPromptDismissed') && !isRotationPromptActive) {
             const toastContainer = document.getElementById('fullscreen-toast-container');
             if (toastContainer) {
-                toastContainer.style.display = 'grid'; // Use grid as per DaisyUI examples for centering
+                if (isIOS && !isStandalone) {
+                    // iOS doesn't support the Fullscreen API — show "Add to Home Screen" tip instead
+                    const alertBox = toastContainer.querySelector('.alert');
+                    const heading = alertBox?.querySelector('h3');
+                    const messageDiv = alertBox?.querySelector('.text-\\[9px\\]');
+                    const buttonContainer = alertBox?.querySelector('.flex.gap-2');
 
-                document.getElementById('toast-fullscreen-btn').onclick = () => {
-                    document.getElementById('fullscreen-toggle-btn').click();
-                    toastContainer.style.display = 'none';
-                    sessionStorage.setItem('fullscreenPromptDismissed', 'true');
-                };
+                    if (heading) heading.textContent = 'Add to Home Screen';
+                    if (messageDiv) messageDiv.textContent = 'Tap the Share button (⬆) in Safari, then "Add to Home Screen" for a fullscreen experience.';
+                    if (buttonContainer) {
+                        buttonContainer.innerHTML = `
+                            <button id="toast-ios-got-it-btn" class="btn btn-primary btn-sm text-white">Got it</button>
+                            <button id="toast-ios-later-btn" class="btn btn-ghost btn-sm">Later</button>
+                        `;
+                        setTimeout(() => {
+                            document.getElementById('toast-ios-got-it-btn')?.addEventListener('click', () => {
+                                toastContainer.style.display = 'none';
+                                sessionStorage.setItem('fullscreenPromptDismissed', 'true');
+                            });
+                            document.getElementById('toast-ios-later-btn')?.addEventListener('click', () => {
+                                toastContainer.style.display = 'none';
+                                sessionStorage.setItem('fullscreenPromptDismissed', 'true');
+                            });
+                        }, 0);
+                    }
 
-                document.getElementById('toast-close-btn').onclick = () => {
-                    toastContainer.style.display = 'none';
-                    sessionStorage.setItem('fullscreenPromptDismissed', 'true');
-                };
+                    toastContainer.style.display = 'grid';
+                } else if (!isIOS) {
+                    toastContainer.style.display = 'grid';
+
+                    document.getElementById('toast-fullscreen-btn').onclick = () => {
+                        document.getElementById('fullscreen-toggle-btn').click();
+                        toastContainer.style.display = 'none';
+                        sessionStorage.setItem('fullscreenPromptDismissed', 'true');
+                    };
+
+                    document.getElementById('toast-close-btn').onclick = () => {
+                        toastContainer.style.display = 'none';
+                        sessionStorage.setItem('fullscreenPromptDismissed', 'true');
+                    };
+                }
             }
         }
 
