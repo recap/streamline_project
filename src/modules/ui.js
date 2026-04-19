@@ -1938,3 +1938,82 @@ export function initResizablePanels(separatorId) {
 
 // Export functions needed by app.js
 export { updateDoseValue };
+
+export function showGhcControls() {
+    const el = document.getElementById('ghc-controls');
+    if (!el || el.style.display === 'flex') return; // already visible, skip
+    el.style.display = 'flex';
+
+    const panel = document.getElementById('shot-data-panel');
+    if (panel) panel.style.width = '878px';
+
+    const status = document.getElementById('machine-status');
+    if (status) {
+        status.style.right = '200px'; // 172px GHC + 20px gap
+        status.style.width = '384px'; // shrink from 556px so it fits 1268px left column
+    }
+
+    // Shrink Pressure column so it doesn't overlap GHC
+    document.querySelectorAll('.shot-data-cols').forEach(grid => {
+        grid.style.gridTemplateColumns = '90px 90px 90px 100px 200px 110px';
+    });
+
+    // Resize Plotly: clear inline width (set by Plotly at init) then relayout to new size.
+    // 1920px canvas - 480px left aside - 172px GHC = 1268px chart width.
+    const chartEl = document.getElementById('plotly-chart');
+    if (chartEl) {
+        chartEl.style.width = '';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            Plotly.relayout(chartEl, { width: 1268 });
+        }));
+    }
+}
+
+export function hideGhcControls() {
+    const el = document.getElementById('ghc-controls');
+    if (!el || el.style.display === 'none') return; // already hidden, skip
+    el.style.display = 'none';
+
+    const panel = document.getElementById('shot-data-panel');
+    if (panel) panel.style.width = '';
+
+    const status = document.getElementById('machine-status');
+    if (status) {
+        status.style.right = '';
+        status.style.width = '';
+    }
+
+    // Restore Pressure column width
+    document.querySelectorAll('.shot-data-cols').forEach(grid => {
+        grid.style.gridTemplateColumns = '';
+    });
+
+    // Restore chart to full main width: 1920px - 480px left aside = 1440px.
+    const chartEl = document.getElementById('plotly-chart');
+    if (chartEl) {
+        chartEl.style.width = '';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            Plotly.relayout(chartEl, { width: 1440 });
+        }));
+    }
+}
+
+export function updateGhcStopButton(isActive) {
+    const stopBtn = document.getElementById('ghc-stop-btn');
+    const actionIds = ['ghc-coffee-btn', 'ghc-water-btn', 'ghc-steam-btn', 'ghc-flush-btn'];
+
+    if (isActive) {
+        // Machine running: stop button fully visible (red bg, white text already in HTML)
+        stopBtn?.classList.remove('opacity-20');
+        // Gray out the 4 action buttons
+        for (const id of actionIds) {
+            document.getElementById(id)?.classList.add('opacity-20');
+        }
+    } else {
+        // Machine idle: stop button grayed out, action buttons normal
+        stopBtn?.classList.add('opacity-20');
+        for (const id of actionIds) {
+            document.getElementById(id)?.classList.remove('opacity-20');
+        }
+    }
+}

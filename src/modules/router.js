@@ -387,6 +387,10 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                             console.log('Router: Initial data reloaded successfully.');
                             appModule.handleWeightClick();
                             appModule.handleScaleData(); // Update scale info immediately after loading data
+                            // Re-wire GHC buttons (DOM was replaced, old handlers are gone)
+                            if (appModule.initGhcButtonHandlers) {
+                                appModule.initGhcButtonHandlers();
+                            }
                         } else {
                             // Fallback: try window.loadInitialData if direct import didn't work
                             if (window.loadInitialData) {

@@ -201,29 +201,58 @@
 
         <!-- Main Content: Graph and Status -->
         <main class="flex flex-col min-h-0 bg-[var(--bgmain-color)] flex-grow" role="main">
-            <div class="p-3  flex flex-col md:flex-row justify-between items-start  ">
-                <div class = "pl-[20px] py-[10px]">
-                    <h1 id="profile-name" class="w-[556px] justify-start text-[var(--mimoja-blue)] text-nowrap text-[27px] font-bold font-['Inter'] leading-9 tracking-wide no-select" tabindex="-1" aria-live="polite" onfocus="this.blur()">
-                        Current Profile
-                    </h1>
-                    <div class="h-9 inline-flex justify-start items-center gap-[20px]" aria-label="Machine Telemetry">
-                        <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Mix">Mix</span> <span id="data-mix-temp" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">°c</span></p>
-                        <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Group">Group</span> <span id="data-group-temp" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">°c</span></p>
-                        <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Steam">Steam</span> <span id="data-steam-temp" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">°c</span></p>
-                        <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Tank">Tank</span> <span id="data-tank-vol" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">ml</span></p>
-                        <div id="scale-info-container" style="display: none;">
-                            <p><span id = 'weight-text' class=" text-[var(--mimoja-blue-v2)] text-[20px] font-semibold font-['NotoSansMono'] leading-6" data-i18n-key="Weight"></span> <span id="data-weight" class="text-[var(--mimoja-blue-v2)] text-[20px]  font-['NotoSansMono'] leading-6 no-select"> </span></p>
+            <!-- Outer flex row: left content column + GHC column (791px = 116 header + 675 chart) -->
+            <div class="flex flex-row">
+                <!-- Left column: header + chart -->
+                <div class="flex flex-col flex-1 min-w-0">
+                    <div class="p-3  flex flex-col md:flex-row justify-between items-start  ">
+                        <div class = "pl-[20px] py-[10px]">
+                            <h1 id="profile-name" class="w-[556px] justify-start text-[var(--mimoja-blue)] text-nowrap text-[30px] font-bold font-['Inter'] leading-9 tracking-wide no-select" tabindex="-1" aria-live="polite" onfocus="this.blur()">
+                                Current Profile
+                            </h1>
+                            <div class="h-9 inline-flex justify-start items-center gap-[20px]" aria-label="Machine Telemetry">
+                                <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Mix">Mix</span> <span id="data-mix-temp" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">°c</span></p>
+                                <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Group">Group</span> <span id="data-group-temp" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">°c</span></p>
+                                <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Steam">Steam</span> <span id="data-steam-temp" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">°c</span></p>
+                                <p><span class="text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['Inter'] leading-6" data-i18n-key="Tank">Tank</span> <span id="data-tank-vol" class="text-[var(--text-primary)] text-[20px]  font-['NotoSansMono'] leading-6">ml</span></p>
+                                <div id="scale-info-container" style="display: none;">
+                                    <p><span id = 'weight-text' class=" text-[var(--mimoja-blue-v2)] text-[20px] font-semibold font-['NotoSansMono'] leading-6" data-i18n-key="Weight"></span> <span id="data-weight" class="text-[var(--mimoja-blue-v2)] text-[20px]  font-['NotoSansMono'] leading-6 no-select"> </span></p>
+                                </div>
+                            </div>
                         </div>
-
+                        <div id="machine-status" class="w-[556px] absolute py-[10px] right-[90px] text-right justify-center text-nowrap text-[30px] font-semibold font-['Inter'] leading-9 tracking-wide" data-i18n-key="Connecting" aria-live="assertive">
+                            Connecting
+                        </div>
                     </div>
-                </div>
-                <div id="machine-status" class="w-[556px] absolute py-[10px] right-[90px] text-right justify-center text-nowrap text-[27px] font-semibold font-['Inter'] leading-9 tracking-wide" data-i18n-key="Connecting" aria-live="assertive">
-                    Connecting
-                </div>
-            </div>
 
-            <!-- Plotly Chart Container -->
-            <div id="plotly-chart" class="w-[1440px] h-[675px] border border-l-0 border-r-0 border-[var(--border-color)]" role="img" aria-label="Shot extraction graph"></div>
+                    <!-- Plotly Chart -->
+                    <div id="plotly-chart" class="w-full h-[675px] border border-l-0 border-r-0 border-[var(--border-color)]" role="img" aria-label="Shot extraction graph"></div>
+                </div>
+
+                <!-- GHC column: h = 116 (header) + 675 (chart) = 791px -->
+                <aside id="ghc-controls" class="bg-[var(--box-color)] border-l border-base-300 w-[172px] shrink-0 h-[791px] flex flex-col items-center justify-around py-[20px]" style="display:none" aria-label="Machine Controls">
+                    <button id="ghc-coffee-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[15px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Start Coffee">
+                        <img src="src/ui/icons/icon_coffee.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
+                        <span class="text-[var(--mimoja-blue)] text-[20px] font-semibold mt-1">Coffee</span>
+                    </button>
+                    <button id="ghc-water-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[15px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Dispense Hot Water">
+                        <img src="src/ui/icons/icon_water.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
+                        <span class="text-[var(--mimoja-blue)] text-[20px] font-semibold mt-1">Water</span>
+                    </button>
+                    <button id="ghc-steam-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[15px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Start Steam">
+                        <img src="src/ui/icons/icon_steam.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
+                        <span class="text-[var(--mimoja-blue)] text-[20px] font-semibold mt-1">Steam</span>
+                    </button>
+                    <button id="ghc-flush-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[15px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Flush">
+                        <img src="src/ui/icons/icon_flush.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
+                        <span class="text-[var(--mimoja-blue)] text-[20px] font-semibold mt-1">Flush</span>
+                    </button>
+                    <button id="ghc-stop-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[15px] bg-[#da515e] opacity-20" aria-label="Stop Machine">
+                        <img src="src/ui/icons/icon_stop.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
+                        <span class="text-white text-[20px] font-semibold mt-1">Stop</span>
+                    </button>
+                </aside>
+            </div>
 
             <!-- Footer: Shot History and Data -->
             <div class="w-[385px] h-60 left-[479px] top-[955px] absolute bg-[var(--bgmain-color)] border border-b-0 border-[var(--border-color)]" aria-label="Shot History">
@@ -242,21 +271,21 @@
                     </div>
                 </div>
             </div>
-            <div class="w-[1050px] h-60 left-[863px] top-[955px] border-r-0 border-b-0 absolute bg-[var(--bgmain-color)] border border-[var(--border-color)]" role="grid" aria-label="Detailed Shot Data">
-                <div class="grid grid-cols-7 w-full left-[198px] top-[35px] absolute" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;" role="row">
+            <div id="shot-data-panel" class="w-[1050px] h-60 left-[863px] top-[955px] border-r-0 border-b-0 absolute bg-[var(--bgmain-color)] border border-[var(--border-color)]" role="grid" aria-label="Detailed Shot Data">
+                <div class="shot-data-cols grid grid-cols-7 w-full left-[198px] top-[35px] absolute" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;" role="row">
                     <div class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start" data-i18n-key="Time" role="columnheader">Time</div>
                     <div class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start" data-i18n-key="Grams" role="columnheader">Grams</div>
                     <div class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start pl-[20px]" data-i18n-key="mL" role="columnheader">mL</div>
                     <div class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start" data-i18n-key="°C" role="columnheader">°C</div>
                     <div class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start" data-i18n-key="mL/s" role="columnheader">mL/s</div>
-                    <div class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start" data-i18n-key="Pressure" role="columnheader">Pressure</div>
+                    <div id="shot-header-pressure" class="h-9 text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 text-left flex items-center justify-start" data-i18n-key="Pressure" role="columnheader">Pressure</div>
                 </div>
 
                 <div class="left-[20px] top-[88px] absolute flex flex-col justify-start items-start gap-[15px] ">
                     <div class="grid grid-cols-7 w-full" style="grid-template-columns: 150px 30px repeat(5, 1fr);" role="row">
                         <div class="h-9 text-end text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 flex items-center justify-end" data-i18n-key="Preinfusion" role="rowheader">Preinfusion</div>
                         <div class="h-9"></div> <!-- Empty column for spacing -->
-                        <div class="col-span-5 grid grid-cols-6 w-full" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;">
+                        <div class="shot-data-cols col-span-5 grid grid-cols-6 w-full" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;">
                             <div id="shot-data-pi-time" class="h-9 text-[var(--text-primary)] text-[20px] font-normal font-mono-custom leading-6 text-left flex items-center justify-start" role="gridcell">15s </div>
                             <div id="shot-data-pi-weight" class="h-9 text-[var(--text-primary)] text-[20px] font-normal font-mono-custom leading-6 text-left flex items-center justify-start" role="gridcell">10g</div>
                             <div id="shot-data-pi-volume" class="h-9 text-[var(--text-primary)] text-[20px] font-normal font-mono-custom leading-6 text-left flex items-center justify-start pl-[20px]" role="gridcell">17ml</div>
@@ -268,7 +297,7 @@
                     <div class="grid grid-cols-7 w-full" style="grid-template-columns: 150px 30px repeat(5, 1fr);" role="row">
                         <div class="h-9 text-end text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 flex items-center justify-end" data-i18n-key="Extraction" role="rowheader">Extraction</div>
                         <div class="h-9"></div> <!-- Empty column for spacing -->
-                        <div class="col-span-5 grid grid-cols-6 w-full" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;">
+                        <div class="shot-data-cols col-span-5 grid grid-cols-6 w-full" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;">
                             <div id="shot-data-ex-time" class="h-9 text-[var(--text-primary)] text-[20px] font-normal font-mono-custom leading-6 text-left flex items-center justify-start" role="gridcell">30s </div>
                             <div id="shot-data-ex-weight" class="h-9 text-[var(--text-primary)] text-[20px] font-normal font-mono-custom leading-6 text-left flex items-center justify-start" role="gridcell">29g</div>
                             <div id="shot-data-ex-volume" class="h-9 text-[var(--text-primary)] text-[20px] font-normal font-mono-custom leading-6 text-left flex items-center justify-start pl-[20px]" role="gridcell">30ml</div>
@@ -280,7 +309,7 @@
                     <div class="grid grid-cols-7 w-full" style="grid-template-columns: 150px 30px repeat(5, 1fr);" role="row">
                         <div class="h-9 text-end text-[var(--data-card-title-text-color)] text-[20px] font-semibold font-['NotoSansMono'] leading-6 flex items-center justify-end" data-i18n-key="Total" role="rowheader">Total</div>
                         <div class="h-9"></div> <!-- Empty column for spacing -->
-                        <div class="col-span-5 grid grid-cols-6 w-full" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;">
+                        <div class="shot-data-cols col-span-5 grid grid-cols-6 w-full" style="grid-template-columns: 90px 90px 90px 100px 200px 200px;">
                             <div id="shot-data-total-time" class="h-9 text-[var(--text-primary)] text-[20px] font-semibold font-mono-custom leading-6 text-left flex items-center justify-start" role="gridcell">45s </div>
                             <div id="shot-data-total-weight" class="h-9 text-[var(--text-primary)] text-[20px] font-semibold font-mono-custom leading-6 text-left flex items-center justify-start" role="gridcell">39g (1:2.5)</div>
                             <div id="shot-data-total-volume" class="h-9 text-[var(--text-primary)] text-[20px] font-semibold font-mono-custom leading-6 text-left flex items-center justify-start pl-[20px]" role="gridcell">57ml</div>

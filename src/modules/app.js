@@ -1,4 +1,4 @@
-import { connectWebSocket, getWorkflow, connectScaleWebSocket, ensureGatewayModeTracking, reconnectingWebSocket, getDevices, reconnectDevice, scanForDevices,connectShotSettingsWebSocket, getDe1AdvancedSettings, updateShotSettingsCache, getDe1Settings, MachineState, getShotIds, getShots, getValueFromStore, verifyVisualizerCredentials, connectScaleDevice, tareScale, connectTimeToReadyWebSocket, sendDeviceCommand, saveScaleDeviceId, getScaleDeviceId, getDeviceWebSocket, initDeviceWebSocketWithCallback, connectDisplayWebSocket } from './api.js';
+import { connectWebSocket, getWorkflow, connectScaleWebSocket, ensureGatewayModeTracking, reconnectingWebSocket, getDevices, reconnectDevice, scanForDevices,connectShotSettingsWebSocket, getDe1AdvancedSettings, updateShotSettingsCache, getDe1Settings, MachineState, getShotIds, getShots, getValueFromStore, verifyVisualizerCredentials, connectScaleDevice, tareScale, connectTimeToReadyWebSocket, sendDeviceCommand, saveScaleDeviceId, getScaleDeviceId, getDeviceWebSocket, initDeviceWebSocketWithCallback, connectDisplayWebSocket, getMachineInfo, setMachineState } from './api.js';
 import { initScaling } from './scaling.js';
 import * as chart from './chart.js';
 import * as ui from './ui.js';
@@ -337,6 +337,12 @@ function handleData(data) {
         }, 5000);
     }
     previousState = data.state; // Update previous state
+
+    // Update GHC stop button opacity: active (not idle/sleeping/error) = fully opaque
+    const isActiveState = state !== MachineState.IDLE &&
+                          state !== MachineState.SLEEPING &&
+                          state !== MachineState.ERROR;
+    ui.updateGhcStopButton(isActiveState);
 
     // Update UI elements
     // Pass detailed status information to match the enhanced updateMachineStatus function
@@ -708,9 +714,41 @@ if (assignedProfileRecord && assignedProfileRecord.profile &&
         if (doseOutValue !== undefined) ui.updateDrinkOut(doseOutValue);
         ui.updateDrinkRatio();
 
+        // Show GHC machine controls column only for non-GHC machines
+        try {
+            const machineInfo = await getMachineInfo();
+            if (machineInfo && machineInfo.GHC === false) {
+                ui.showGhcControls();
+            }
+        } catch (e) {
+            logger.warn('Could not fetch machine info for GHC check:', e);
+        }
+
     } catch (error) {
         logger.error("Failed to load initial data:", error);
         ui.updateProfileName("Error loading profile");
+    }
+}
+
+export function initGhcButtonHandlers() {
+    const ghcButtons = {
+        'ghc-coffee-btn': MachineState.ESPRESSO,
+        'ghc-water-btn': MachineState.HOT_WATER,
+        'ghc-steam-btn': MachineState.STEAM,
+        'ghc-flush-btn': MachineState.FLUSH,
+        'ghc-stop-btn': MachineState.IDLE,
+    };
+    for (const [id, state] of Object.entries(ghcButtons)) {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', async () => {
+                try {
+                    await setMachineState(state);
+                } catch (e) {
+                    logger.error(`Failed to set machine state to ${state}:`, e);
+                }
+            });
+        }
     }
 }
 
@@ -856,6 +894,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             getDe1AdvancedSettings();
             getDe1Settings();
             logger.info('App DOMContentLoaded: WebSockets and timers set up.');
+
+            // GHC machine control button handlers
+            initGhcButtonHandlers();
         } // End of if (!isSubPage())
 
         logger.info('App initialization finished successfully.');
