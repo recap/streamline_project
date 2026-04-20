@@ -730,27 +730,25 @@ if (assignedProfileRecord && assignedProfileRecord.profile &&
     }
 }
 
-export function initGhcButtonHandlers() {
-    const ghcButtons = {
-        'ghc-coffee-btn': MachineState.ESPRESSO,
-        'ghc-water-btn': MachineState.HOT_WATER,
-        'ghc-steam-btn': MachineState.STEAM,
-        'ghc-flush-btn': MachineState.FLUSH,
-        'ghc-stop-btn': MachineState.IDLE,
-    };
-    for (const [id, state] of Object.entries(ghcButtons)) {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.addEventListener('click', async () => {
-                try {
-                    await setMachineState(state);
-                } catch (e) {
-                    logger.error(`Failed to set machine state to ${state}:`, e);
-                }
-            });
-        }
+// Delegated listener on document — survives all DOM replacements, no re-wiring needed
+const GHC_STATE_MAP = {
+    'ghc-coffee-btn': MachineState.ESPRESSO,
+    'ghc-water-btn': MachineState.HOT_WATER,
+    'ghc-steam-btn': MachineState.STEAM,
+    'ghc-flush-btn': MachineState.FLUSH,
+    'ghc-stop-btn': MachineState.IDLE,
+};
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[id^="ghc-"]');
+    if (!btn || !GHC_STATE_MAP[btn.id]) return;
+    try {
+        await setMachineState(GHC_STATE_MAP[btn.id]);
+    } catch (err) {
+        logger.error(`GHC state change failed (${btn.id}):`, err);
     }
-}
+});
+
+export function initGhcButtonHandlers() {} // no-op — delegation handles it
 
 async function initializeDe1Connection() {
     try {
@@ -895,8 +893,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             getDe1Settings();
             logger.info('App DOMContentLoaded: WebSockets and timers set up.');
 
-            // GHC machine control button handlers
-            initGhcButtonHandlers();
         } // End of if (!isSubPage())
 
         logger.info('App initialization finished successfully.');

@@ -60,6 +60,9 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
         const mainContainer = document.querySelector(containerSelector);
 
         if (newContent && mainContainer) {
+            // Hide immediately — content will be revealed after initialization is complete
+            mainContainer.classList.remove('scaled');
+
             // Store references to any existing scripts that might be affected
             const existingScripts = Array.from(document.querySelectorAll('script[data-dynamic]'));
 
@@ -218,6 +221,7 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                     } catch (e) {
                         console.error('Router: Error initializing profile selector:', e);
                     }
+                    mainContainer.classList.add('scaled');
                 } else if (pageUrl.includes('settings.html') || pageUrl.endsWith('settings.html')) {
                     console.log('Router: Initializing settings page...');
                     try {
@@ -243,6 +247,7 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                     } catch (e) {
                         console.error('Router: Error initializing scaling for settings page:', e);
                     }
+                    mainContainer.classList.add('scaled');
                 } else {
                     console.log('Router: Page does not match profile selector pattern, attempting to reinitialize main page components.');
 
@@ -387,10 +392,6 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                             console.log('Router: Initial data reloaded successfully.');
                             appModule.handleWeightClick();
                             appModule.handleScaleData(); // Update scale info immediately after loading data
-                            // Re-wire GHC buttons (DOM was replaced, old handlers are gone)
-                            if (appModule.initGhcButtonHandlers) {
-                                appModule.initGhcButtonHandlers();
-                            }
                         } else {
                             // Fallback: try window.loadInitialData if direct import didn't work
                             if (window.loadInitialData) {
@@ -496,6 +497,7 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                     } catch (e) {
                         console.error('Router: Error reinitializing main page components:', e);
                     }
+                    mainContainer.classList.add('scaled');
                 }
             }, 100); // Small delay to ensure DOM is ready
         } else {

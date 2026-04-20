@@ -1,3 +1,5 @@
+let isInitialScaleDone = false; // module-level: only first initScaling call adds .scaled
+
 export function initScaling() {
     const viewport = document.getElementById('scaling-container');
     const content = document.getElementById('scaled-content');
@@ -143,8 +145,6 @@ export function initScaling() {
             content.style.transform = `scale(${scale}) translate(${clampedOffsetX / scale}px, ${clampedOffsetY / scale}px)`;
         }
     }
-
-    let isInitialScaleDone = false;
 
     // Initial scaling with a slight delay to ensure the browser has settled the viewport dimensions
     // This is especially important for web views that might adjust dimensions after initial load
