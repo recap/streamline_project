@@ -141,6 +141,21 @@ function onScaleDisconnect() {
     });
 }
 
+const deviceErrorCopy = {
+    scaleConnectFailed: 'Scale did not connect. Wake it and retry.',
+    machineConnectFailed: 'DE1 did not connect. Retry scan.',
+    scaleDisconnected: 'Scale dropped. Retry scan.',
+    machineDisconnected: 'DE1 dropped. Retry scan.',
+    adapterOff: 'Bluetooth is off. Turn it on to continue.',
+    bluetoothPermissionDenied: 'Grant Bluetooth permission to continue.',
+    scanFailed: 'Scan could not start. Retry.',
+};
+
+function handleDeviceConnectionError(err) {
+    const msg = deviceErrorCopy[err.kind] ?? `${err.message}${err.suggestion ? `\n${err.suggestion}` : ''}`;
+    ui.showToast(msg, 5000, 'error');
+}
+
 // Sets a timer. If no data is received within 5 seconds, it assumes a stale connection.
 function resetDataTimeout() {
     clearTimeout(dataTimeout);
@@ -460,7 +475,8 @@ async function handleWeightClick() {
                 },
                 () => {},
                 () => {},
-                () => {}
+                () => {},
+                handleDeviceConnectionError
             );
         } else {
             sendDeviceCommand({ command: 'scan', connect: true });

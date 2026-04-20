@@ -55,6 +55,9 @@ let currentSteamFlow = 1.5;
 let steamMode = 'time'; // 'time' or 'flow'
 let steamTimePresets = [15, 30, 45, 60];
 let steamFlowPresets = [0.5, 1.0, 1.5, 2.0];
+let steamApiDebounce = null;
+let hotWaterApiDebounce = null;
+const API_DEBOUNCE_MS = 1000;
 
 export function flashPlusMinusButton(button) {
     // Add the flash animation class
@@ -299,22 +302,32 @@ export function updateHotWaterDisplay(data) {
     }
 }
 
+function scheduleHotWaterApi() {
+    clearTimeout(hotWaterApiDebounce);
+    hotWaterApiDebounce = setTimeout(() => {
+        if (hotWaterMode === 'volume') {
+            setTargetHotWaterVolume(currentHotWaterVolume).catch(e => logger.error(e));
+        } else {
+            setTargetHotWaterTemp(currentHotWaterTemp).catch(e => logger.error(e));
+        }
+    }, API_DEBOUNCE_MS);
+}
+
 function incrementHotWater() {
     const hotWaterPlusBtn = document.getElementById('hot-water-vol-plus');
     if (hotWaterPlusBtn) { flashPlusMinusButton(hotWaterPlusBtn); }
     if (hotWaterMode === 'volume') {
         if (currentHotWaterVolume < 255) {
             currentHotWaterVolume += 5;
-            if (currentHotWaterVolume > 255) currentHotWaterVolume = 255; // cap at max
-            setTargetHotWaterVolume(currentHotWaterVolume).catch(e => logger.error(e));
+            if (currentHotWaterVolume > 255) currentHotWaterVolume = 255;
         }
     } else {
         if (currentHotWaterTemp < 100) {
             currentHotWaterTemp += 1;
-            setTargetHotWaterTemp(currentHotWaterTemp).catch(e => logger.error(e));
         }
     }
     updateHotWaterDisplay({ targetHotWaterVolume: currentHotWaterVolume, targetHotWaterTemp: currentHotWaterTemp });
+    scheduleHotWaterApi();
 }
 
 function decrementHotWater() {
@@ -323,17 +336,15 @@ function decrementHotWater() {
     if (hotWaterMode === 'volume') {
         if (currentHotWaterVolume > 3) {
             currentHotWaterVolume -= 5;
-            if (currentHotWaterVolume < 3) currentHotWaterVolume = 3; // cap at min
-            setTargetHotWaterVolume(currentHotWaterVolume).catch(e => logger.error(e));
+            if (currentHotWaterVolume < 3) currentHotWaterVolume = 3;
         }
-    }
-    else {
+    } else {
         if (currentHotWaterTemp > 0) {
             currentHotWaterTemp -= 1;
-            setTargetHotWaterTemp(currentHotWaterTemp).catch(e => logger.error(e));
         }
     }
     updateHotWaterDisplay({ targetHotWaterVolume: currentHotWaterVolume, targetHotWaterTemp: currentHotWaterTemp });
+    scheduleHotWaterApi();
 }
 
 function updateHotWaterPresetDisplay() {
@@ -363,6 +374,12 @@ function setupValueAdjuster(minusBtnId, plusBtnId, valueElId, step, min, formatt
 
     if (!minusBtn || !plusBtn || !document.getElementById(valueElId)) return;
 
+    let debounceTimer = null;
+    const scheduleUpdate = (value) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => onUpdate(value), API_DEBOUNCE_MS);
+    };
+
     minusBtn.addEventListener('click', (e) => {
         flashPlusMinusButton(e.currentTarget);
         const valueEl = document.getElementById(valueElId);
@@ -371,7 +388,7 @@ function setupValueAdjuster(minusBtnId, plusBtnId, valueElId, step, min, formatt
         if (currentValue > min) {
             currentValue -= step;
             valueEl.textContent = formatter(currentValue);
-            onUpdate(currentValue);
+            scheduleUpdate(currentValue);
         }
     });
 
@@ -382,7 +399,7 @@ function setupValueAdjuster(minusBtnId, plusBtnId, valueElId, step, min, formatt
         let currentValue = parseFloat(valueEl.textContent);
         currentValue += step;
         valueEl.textContent = formatter(currentValue);
-        onUpdate(currentValue);
+        scheduleUpdate(currentValue);
     });
 }
 
@@ -477,20 +494,29 @@ export function updateSteamDisplay(data) {
     }
 }
 
+function scheduleSteamApi() {
+    clearTimeout(steamApiDebounce);
+    steamApiDebounce = setTimeout(() => {
+        if (steamMode === 'time') {
+            setTargetSteamDuration(currentSteamDuration).catch(e => logger.error(e));
+        } else {
+            setTargetSteamFlow(currentSteamFlow).catch(e => logger.error(e));
+        }
+    }, API_DEBOUNCE_MS);
+}
+
 function incrementSteam() {
     const steamPlusBtn = document.getElementById('steam-plus');
-    if (steamPlusBtn) {  flashPlusMinusButton(steamPlusBtn);
-    }
+    if (steamPlusBtn) { flashPlusMinusButton(steamPlusBtn); }
     if (steamMode === 'time') {
         currentSteamDuration += 1;
-        setTargetSteamDuration(currentSteamDuration).catch(e => logger.error(e));
     } else {
         if (currentSteamFlow < 2.5) {
             currentSteamFlow += 0.1;
-            setTargetSteamFlow(currentSteamFlow).catch(e => logger.error(e));
         }
     }
     updateSteamDisplay({ targetSteamDuration: currentSteamDuration, targetSteamFlow: currentSteamFlow });
+    scheduleSteamApi();
 }
 
 function decrementSteam() {
@@ -499,15 +525,14 @@ function decrementSteam() {
     if (steamMode === 'time') {
         if (currentSteamDuration > 0) {
             currentSteamDuration -= 1;
-            setTargetSteamDuration(currentSteamDuration).catch(e => logger.error(e));
         }
     } else {
         if (currentSteamFlow > 0.4) {
             currentSteamFlow -= 0.1;
-            setTargetSteamFlow(currentSteamFlow).catch(e => logger.error(e));
         }
     }
     updateSteamDisplay({ targetSteamDuration: currentSteamDuration, targetSteamFlow: currentSteamFlow });
+    scheduleSteamApi();
 }
 
 function updateSteamPresetDisplay() {
@@ -1951,6 +1976,7 @@ export function showGhcControls() {
     if (status) {
         status.style.right = '200px'; // 172px GHC + 20px gap
         status.style.width = '384px'; // shrink from 556px so it fits 1268px left column
+        status.style.fontSize = '22px'; // reduce from 30px so long strings like "Espresso Heating: Please Wait" fit
     }
 
     // Shrink Pressure column so it doesn't overlap GHC
@@ -1981,6 +2007,7 @@ export function hideGhcControls() {
     if (status) {
         status.style.right = '';
         status.style.width = '';
+        status.style.fontSize = '';
     }
 
     // Restore Pressure column width

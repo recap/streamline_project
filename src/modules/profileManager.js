@@ -322,7 +322,7 @@ async function handleProfileClick(index) {
 
     if (!profileRecord || !profileRecord.profile) {
         logger.warn(`Button ${index} has no profile assigned or profile data is missing.`);
-        showToast('Hold or double click to open profile selection.');
+        showToast('No profile assigned. Double tap or long press to assign a profile.', 4000, 'info');
         // Reset the flag before returning
         profileUpdateInProgress = false;
         // Remove waiting state if there was an error

@@ -49,6 +49,7 @@ A modern web UI skin for the Decent Espresso DE1, built on top of [Streamline-Br
 - Real-time water tank level display
 - DE1 and scale device scan/connect/disconnect
 - Auto-reconnection with exponential backoff on WebSocket drop
+- **Non-GHC machine controls** — when connected to a machine without a Group Head Controller, a dedicated right-side column appears with Coffee, Water, Steam, Flush, and Stop buttons; active state visually disables action buttons and highlights Stop in red
 
 ### Settings
 - **Bluetooth** — scan and connect DE1 and scale; scale auto-connect

@@ -226,16 +226,6 @@ export function connectScaleWebSocket(onData, onReconnect, onDisconnect) {
         scaleWebSocket.close();
     }
 
-    let scaleDataTimeout;
-    const SCALE_TIMEOUT_DURATION = 5000; // 5 seconds
-
-    const handleScaleTimeout = () => {
-        logger.warn(`No scale data received for ${SCALE_TIMEOUT_DURATION / 1000} seconds. Assuming disconnection.`);
-        if (onDisconnect) {
-            onDisconnect();
-        }
-    };
-
     scaleWebSocket = new ReconnectingWebSocket(`${WS_PROTOCOL}//${reaHostname}:${REA_PORT}/ws/v1/scale/snapshot`, [], {
         debug: true,
         reconnectInterval: 3000,
@@ -243,21 +233,23 @@ export function connectScaleWebSocket(onData, onReconnect, onDisconnect) {
 
     scaleWebSocket.onopen = () => {
         logger.info('Scale WebSocket (re)connected.');
-        clearTimeout(scaleDataTimeout);
-        scaleDataTimeout = setTimeout(handleScaleTimeout, SCALE_TIMEOUT_DURATION);
         if (onReconnect) {
             onReconnect();
         }
     };
 
     scaleWebSocket.onmessage = (event) => {
-        clearTimeout(scaleDataTimeout);
-        scaleDataTimeout = setTimeout(handleScaleTimeout, SCALE_TIMEOUT_DURATION);
-
         try {
             const data = JSON.parse(event.data);
-            onData(data);
-            //logger.debug(data);
+            if (data.status === 'disconnected') {
+                logger.info('Scale disconnected (server status frame).');
+                if (onDisconnect) onDisconnect();
+            } else if (data.status === 'connected') {
+                logger.info('Scale connected (server status frame).');
+                if (onReconnect) onReconnect();
+            } else {
+                onData(data);
+            }
         } catch (error) {
             logger.error('Error parsing scale WebSocket message:', error);
         }
@@ -265,7 +257,6 @@ export function connectScaleWebSocket(onData, onReconnect, onDisconnect) {
 
     scaleWebSocket.onclose = () => {
         logger.info('Scale WebSocket disconnected.');
-        clearTimeout(scaleDataTimeout);
         if (onDisconnect) {
             onDisconnect();
         }
@@ -273,7 +264,6 @@ export function connectScaleWebSocket(onData, onReconnect, onDisconnect) {
 
     scaleWebSocket.onerror = (error) => {
         logger.error('Scale WebSocket error:', error);
-        clearTimeout(scaleDataTimeout);
     };
 
     scaleWebSocket.onreconnect = null;
@@ -338,17 +328,7 @@ export function connectTimeToReadyWebSocket(onData) {
 
 let deviceWebSocket = null; // Module-level variable to track device WebSocket connection
 
-export function connectDeviceWebSocket(onData, onReconnect, onDisconnect) {
-    let deviceDataTimeout;
-    const DEVICE_TIMEOUT_DURATION = 5000; // 5 seconds
-
-    const handleDeviceTimeout = () => {
-        logger.warn(`No device data received for ${DEVICE_TIMEOUT_DURATION / 1000} seconds. Assuming disconnection.`);
-        if (onDisconnect) {
-            onDisconnect();
-        }
-    };
-
+export function connectDeviceWebSocket(onData, onReconnect, onDisconnect, onError) {
     if (deviceWebSocket) {
         logger.info('Closing existing device WebSocket before creating a new one.');
         deviceWebSocket.close();
@@ -359,21 +339,24 @@ export function connectDeviceWebSocket(onData, onReconnect, onDisconnect) {
         reconnectInterval: 3000,
     });
 
+    let lastErrorTimestamp = null;
+
     deviceWebSocket.onopen = () => {
         logger.info('Device WebSocket (re)connected.');
-        clearTimeout(deviceDataTimeout);
-        deviceDataTimeout = setTimeout(handleDeviceTimeout, DEVICE_TIMEOUT_DURATION);
         if (onReconnect) {
             onReconnect();
         }
     };
 
     deviceWebSocket.onmessage = (event) => {
-        clearTimeout(deviceDataTimeout);
-        deviceDataTimeout = setTimeout(handleDeviceTimeout, DEVICE_TIMEOUT_DURATION);
-
         try {
             const data = JSON.parse(event.data);
+            const err = data.connectionStatus?.error;
+            if (err && err.timestamp !== lastErrorTimestamp) {
+                lastErrorTimestamp = err.timestamp;
+                logger.warn('Device connection error:', err);
+                if (onError) onError(err);
+            }
             onData(data);
             logger.debug('Device data:', data);
         } catch (error) {
@@ -383,7 +366,6 @@ export function connectDeviceWebSocket(onData, onReconnect, onDisconnect) {
 
     deviceWebSocket.onclose = () => {
         logger.info('Device WebSocket disconnected.');
-        clearTimeout(deviceDataTimeout);
         if (onDisconnect) {
             onDisconnect();
         }
@@ -391,7 +373,6 @@ export function connectDeviceWebSocket(onData, onReconnect, onDisconnect) {
 
     deviceWebSocket.onerror = (error) => {
         logger.error('Device WebSocket error:', error);
-        clearTimeout(deviceDataTimeout);
     };
 
     deviceWebSocket.onreconnect = null;
@@ -528,12 +509,12 @@ export function getDisplayWebSocket() {
     return displayWebSocket;
 }
 
-export function initDeviceWebSocketWithCallback(onReady, onData, onReconnect, onDisconnect) {
+export function initDeviceWebSocketWithCallback(onReady, onData, onReconnect, onDisconnect, onError) {
     if (deviceWebSocket && deviceWebSocket.readyState === WebSocket.OPEN) {
         logger.info('Device WebSocket already connected');
         if (onReady) onReady();
         if (onData) {
-            connectDeviceWebSocket(onData, onReconnect, onDisconnect);
+            connectDeviceWebSocket(onData, onReconnect, onDisconnect, onError);
         }
         return;
     }
@@ -542,10 +523,10 @@ export function initDeviceWebSocketWithCallback(onReady, onData, onReconnect, on
         deviceWebSocket.removeEventListener('open', handleFirstOpen);
         logger.info('Device WebSocket ready for commands');
         if (onReady) onReady();
-        connectDeviceWebSocket(onData, onReconnect, onDisconnect);
+        connectDeviceWebSocket(onData, onReconnect, onDisconnect, onError);
     };
 
-    connectDeviceWebSocket(onData, onReconnect, onDisconnect);
+    connectDeviceWebSocket(onData, onReconnect, onDisconnect, onError);
     deviceWebSocket.addEventListener('open', handleFirstOpen);
 }
 
