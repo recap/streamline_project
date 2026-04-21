@@ -190,7 +190,8 @@ const settingsTree = {
             { id: 'resolution', name: 'Resolution', settingsCategory: 'appearance' },
             { id: 'smartcharging', name: 'Smart Charging', settingsCategory: 'smartcharging' },
             { id: 'screensaver', name: 'Screen Saver', settingsCategory: 'misc' },
-            { id: 'machineadvancedsettings', name: 'Machine Advanced Settings', settingsCategory: 'de1advanced' }
+            { id: 'machineadvancedsettings', name: 'Machine Advanced Settings', settingsCategory: 'de1advanced' },
+            { id: 'keyboard-shortcuts', name: 'Keyboard Shortcuts', settingsCategory: 'keyboard_shortcuts' }
         ]
     },
     'updates': {
@@ -495,6 +496,8 @@ export function renderSettingsContent(category) {
             return renderDe1AdvancedSettingsForm(settingsCache.de1Advanced);
         case 'hot water':
             return renderHotWaterSettings(settingsCache.de1);
+        case 'keyboard_shortcuts':
+            return renderKeyboardShortcutsSettings();
         default:
             return renderGeneralSettings();
     }
@@ -4162,6 +4165,117 @@ window.scanForScales = async function() {
 // Smart Charging handlers
 window.handleSmartChargingModeChange = async function(mode) {
     await updateReaSetting('chargingMode', mode);
+};
+
+// ── Keyboard Shortcuts Settings ──────────────────────────────────────────────
+
+const KEYBOARD_ACTIONS = [
+    { label: 'Espresso',    state: 'espresso',  defaultKey: 'e' },
+    { label: 'Hot Water',   state: 'hotWater',  defaultKey: 'w' },
+    { label: 'Steam',       state: 'steam',     defaultKey: 's' },
+    { label: 'Flush',       state: 'flush',     defaultKey: 'f' },
+    { label: 'Idle / Stop', state: 'idle',      defaultKey: ' ' },
+    { label: 'Sleep',       state: 'sleeping',  defaultKey: 'p' },
+];
+
+function getKeyBindings() {
+    try { return JSON.parse(localStorage.getItem('keyboardBindings') || '{}'); }
+    catch { return {}; }
+}
+
+function keyDisplayName(key) {
+    return key === ' ' ? 'Space' : key.toUpperCase();
+}
+
+export function renderKeyboardShortcutsSettings() {
+    const saved = getKeyBindings();
+    const rows = KEYBOARD_ACTIONS.map(({ label, state, defaultKey }) => {
+        const currentKey = saved[state] ?? defaultKey;
+        return `
+            <div class="content-stretch flex items-center justify-between relative w-full py-[10px] border-b border-[var(--box-color)]">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[28px]">
+                    <p class="leading-[1.2]">${label}</p>
+                </div>
+                <div class="flex items-center gap-[20px]">
+                    <span id="kb-current-${state}" class="font-['Inter:Regular',sans-serif] font-normal text-[var(--text-primary)] text-[24px] w-[80px] text-center">${keyDisplayName(currentKey)}</span>
+                    <button id="kb-btn-${state}" onclick="window.startKeyRebind('${state}')"
+                        class="bg-[#385a92] rounded-[10px] px-[20px] h-[52px] text-white text-[22px] font-bold min-w-[140px]">
+                        Rebind
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
+
+    return `
+        <div class="content-stretch flex flex-col gap-[40px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Keyboard Shortcuts</p>
+            </div>
+            <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[22px] w-full">
+                Click <strong>Rebind</strong> next to an action, then press any key to assign it.
+            </p>
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                ${rows}
+            </div>
+            <button onclick="window.resetKeyboardBindings()"
+                class="border border-[#385a92] rounded-[10px] px-[30px] h-[52px] text-[#385a92] text-[22px] font-bold">
+                Reset to Defaults
+            </button>
+        </div>`;
+}
+
+window.startKeyRebind = function(stateValue) {
+    const btn = document.getElementById(`kb-btn-${stateValue}`);
+    if (!btn) return;
+
+    btn.textContent = 'Press a key…';
+    btn.disabled = true;
+
+    function onKey(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.removeEventListener('keydown', onKey, true);
+
+        btn.disabled = false;
+
+        if (e.key === 'Escape') {
+            btn.textContent = 'Rebind';
+            return;
+        }
+
+        const newKey = e.key;
+        const saved = getKeyBindings();
+
+        // conflict check — is this key already used by another action?
+        const conflict = KEYBOARD_ACTIONS.find(({ state, defaultKey }) => {
+            if (state === stateValue) return false;
+            const currentKey = saved[state] ?? defaultKey;
+            return currentKey === newKey;
+        });
+
+        if (conflict) {
+            btn.textContent = 'Rebind';
+            ui.showToast(`Key "${keyDisplayName(newKey)}" already used by ${conflict.label}`, 4000, 'error');
+            return;
+        }
+
+        saved[stateValue] = newKey;
+        localStorage.setItem('keyboardBindings', JSON.stringify(saved));
+
+        const display = document.getElementById(`kb-current-${stateValue}`);
+        if (display) display.textContent = keyDisplayName(newKey);
+        btn.textContent = 'Rebind';
+
+        ui.showToast('Keyboard shortcut saved', 3000, 'success');
+    }
+
+    document.addEventListener('keydown', onKey, true);
+};
+
+window.resetKeyboardBindings = function() {
+    localStorage.removeItem('keyboardBindings');
+    updateSettingsContentArea('keyboard_shortcuts');
+    ui.showToast('Keyboard shortcuts reset to defaults', 3000, 'success');
 };
 
 window.handleNightModeToggle = async function(enabled) {

@@ -404,6 +404,9 @@ function setupValueAdjuster(minusBtnId, plusBtnId, valueElId, step, min, formatt
 }
 
 function setupPressAndHold(element, clickCallback, longPressCallback) {
+    if (element.dataset.pressHoldInit) return; // already wired — prevent duplicate listeners on re-init
+    element.dataset.pressHoldInit = '1';
+
     let timer;
     let longPressOccurred = false;
 
@@ -422,6 +425,10 @@ function setupPressAndHold(element, clickCallback, longPressCallback) {
             // Prevent any further "click" actions if a long press happened.
             e.preventDefault();
             e.stopPropagation();
+        } else if (e.type === 'touchend') {
+            // preventDefault on touchstart suppressed the synthetic click — fire manually
+            e.preventDefault();
+            clickCallback();
         }
     };
 

@@ -111,7 +111,8 @@ function formatStateString(text) {
 let shotStartTime = null;
 let dataTimeout;
 let de1DeviceId = null;
-let isDe1Connected = false; // New variable to track DE1 connection status
+let isDe1Connected = false;
+let isNonGhcMachine = false;
 let isScaleConnected = false; // New variable to track Scale connection status
 let previousState = {}; // Track previous machine state object {state, substate}
 
@@ -734,6 +735,7 @@ if (assignedProfileRecord && assignedProfileRecord.profile &&
         try {
             const machineInfo = await getMachineInfo();
             if (machineInfo && machineInfo.GHC === false) {
+                isNonGhcMachine = true;
                 ui.showGhcControls();
             }
         } catch (e) {
@@ -765,6 +767,45 @@ document.addEventListener('click', async (e) => {
 });
 
 export function initGhcButtonHandlers() {} // no-op — delegation handles it
+
+// Keyboard shortcuts — only fire when DE1 connected and no input/textarea focused
+const DEFAULT_KEY_BINDINGS = {
+    'w': MachineState.HOT_WATER,
+    'f': MachineState.FLUSH,
+    ' ': MachineState.IDLE,
+    's': MachineState.STEAM,
+    'e': MachineState.ESPRESSO,
+    'p': MachineState.SLEEPING,
+};
+
+function getKeyboardStateMap() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('keyboardBindings') || '{}');
+        const map = { ...DEFAULT_KEY_BINDINGS };
+        for (const [stateValue, newKey] of Object.entries(saved)) {
+            // remove old key bound to this state
+            for (const [k, v] of Object.entries(map)) {
+                if (v === stateValue) { delete map[k]; break; }
+            }
+            map[newKey] = stateValue;
+        }
+        return map;
+    } catch { return { ...DEFAULT_KEY_BINDINGS }; }
+}
+
+document.addEventListener('keydown', async (e) => {
+    if (!isDe1Connected || !isNonGhcMachine) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const state = getKeyboardStateMap()[e.key];
+    if (!state) return;
+    e.preventDefault();
+    try {
+        await setMachineState(state);
+    } catch (err) {
+        logger.error(`Keyboard shortcut state change failed (${e.key}):`, err);
+    }
+});
 
 async function initializeDe1Connection() {
     try {
