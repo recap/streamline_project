@@ -1,4 +1,4 @@
-import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow } from '../modules/api.js';
+import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow, getAllSkins, getDefaultSkin, setDefaultSkin, updateSkins, uploadFirmware } from '../modules/api.js';
 import * as ui from '../modules/ui.js';
 import { initScaling } from '../modules/scaling.js';
 import { getSupportedLanguages, getCurrentLanguage, setLanguage } from '../modules/i18n.js';
@@ -24,7 +24,13 @@ let settingsCache = {
     appInfoError: null,
     machineInfo: null,
     machineInfoLoading: false,
-    machineInfoError: null
+    machineInfoError: null,
+    skinInfo: null,
+    skinInfoLoading: false,
+    skinInfoError: null,
+    allSkins: null,
+    allSkinsLoading: false,
+    allSkinsError: null
 };
 
 let activeSettingsCategory = null; // New global variable to track the currently active category
@@ -155,7 +161,7 @@ const settingsTree = {
         name: 'Maintenance',
         subcategories: [
             { id: 'machinedescaling', name: 'Machine Descaling', settingsCategory: 'maint_descaling' },
-            { id: 'transportmode',    name: 'Transport mode',    settingsCategory: 'maint_transport' }
+            { id: 'transportmode',    name: 'Transport Mode',    settingsCategory: 'maint_airpurge' }
         ]
     },
     'skin': {
@@ -184,12 +190,12 @@ const settingsTree = {
             { id: 'brightness', name: 'Brightness', settingsCategory: 'brightness' },
             { id: 'wakelock', name: 'Wake Lock', settingsCategory: 'wakelock' },
             { id: 'presence', name: 'Presence Detection', settingsCategory: 'presence' },
-            { id: 'appversion', name: 'App Version', settingsCategory: 'misc' },
+            { id: 'appversion', name: 'App Version', settingsCategory: 'appversion' },
             { id: 'unitssettings', name: 'Units Settings', settingsCategory: 'language' },
-            { id: 'fontsize', name: 'Font Size', settingsCategory: 'appearance' },
-            { id: 'resolution', name: 'Resolution', settingsCategory: 'appearance' },
+            { id: 'fontsize', name: 'Font Size', settingsCategory: 'fontsize' },
+            { id: 'resolution', name: 'Resolution', settingsCategory: 'resolution' },
             { id: 'smartcharging', name: 'Smart Charging', settingsCategory: 'smartcharging' },
-            { id: 'screensaver', name: 'Screen Saver', settingsCategory: 'misc' },
+            { id: 'screensaver', name: 'Screen Saver', settingsCategory: 'screensaver' },
             { id: 'machineadvancedsettings', name: 'Machine Advanced Settings', settingsCategory: 'de1advanced' },
             { id: 'keyboard-shortcuts', name: 'Keyboard Shortcuts', settingsCategory: 'keyboard_shortcuts' }
         ]
@@ -197,8 +203,7 @@ const settingsTree = {
     'updates': {
         name: 'Updates',
         subcategories: [
-            { id: 'firmwareupdate', name: 'Firmware Update', settingsCategory: 'updates' },
-            { id: 'appupdate', name: 'App Update', settingsCategory: 'updates' }
+            { id: 'firmwareupdate', name: 'Firmware Update', settingsCategory: 'firmware' }
         ]
     },
     'usermanual': {
@@ -442,8 +447,8 @@ export function renderSettingsContent(category) {
             return renderCalibSteamSettings();
         case 'maint_descaling':
             return renderMainDescalingSettings();
-        case 'maint_transport':
-            return renderMainTransportSettings();
+        case 'maint_airpurge':
+            return renderMainAirPurgeSettings();
         case 'skin':
         case 'appearance':
             return renderSkinSettings();
@@ -454,9 +459,6 @@ export function renderSettingsContent(category) {
         case 'extention1':
         case 'extention2':
             return renderExtensionsSettings();
-        case 'misc':
-        case 'miscellaneous':
-        case 'reasettings':
         case 'screensaver':
             return renderScreenSaverSettings();
         case 'brightness':
@@ -467,20 +469,18 @@ export function renderSettingsContent(category) {
             return renderPresenceSettings();
         case 'appversion':
             return renderAppVersionSettings();
-        case 'unitssettings':
         case 'fontsize':
         case 'resolution':
+        case 'unitssettings':
         case 'machineadvancedsettings':
         case 'misc':
         case 'miscellaneous':
-        case 'reasettings':
             return renderMiscellaneousSettings();
         case 'smartcharging':
             return renderSmartChargingSettings();
-        case 'updates':
+        case 'firmware':
         case 'firmwareupdate':
-        case 'appupdate':
-            return renderUpdatesSettings();
+            return renderFirmwareUpdateSettings();
         case 'usermanual':
         case 'onlinehelp':
         case 'tutorials':
@@ -667,6 +667,109 @@ export function renderReaSettingsForm(settings) {
                     </p>
                 </div>
             </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="flex flex-col items-start relative w-full max-w-full">
+                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
+                    <div class="flex items-center justify-between relative w-full max-w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Automatic Update Checks</p>
+                        </div>
+                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[250px] text-white text-[24px] p-2 max-w-[250px]"
+                                onchange="window.updateReaSetting('automaticUpdateCheck', this.value === 'true')">
+                            <option value="true" ${settings.automaticUpdateCheck !== false ? 'selected' : ''}>Enabled</option>
+                            <option value="false" ${settings.automaticUpdateCheck === false ? 'selected' : ''}>Disabled</option>
+                        </select>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[270px]">
+                        Check for app updates every 12 hours automatically
+                    </p>
+                </div>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="flex flex-col items-start relative w-full max-w-full">
+                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
+                    <div class="flex items-center justify-between relative w-full max-w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Scale Power Management</p>
+                        </div>
+                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[250px] text-white text-[24px] p-2 max-w-[250px]"
+                                onchange="window.updateReaSetting('scalePowerMode', this.value)">
+                            <option value="disabled" ${(settings.scalePowerMode || 'disabled') === 'disabled' ? 'selected' : ''}>Disabled</option>
+                            <option value="displayOff" ${settings.scalePowerMode === 'displayOff' ? 'selected' : ''}>Display Off</option>
+                            <option value="disconnect" ${settings.scalePowerMode === 'disconnect' ? 'selected' : ''}>Disconnect</option>
+                        </select>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[270px]">
+                        Controls automatic scale power management when the machine sleeps. Display Off turns off the scale display. Disconnect disconnects the scale completely.
+                    </p>
+                </div>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="flex flex-col items-start relative w-full max-w-full">
+                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
+                    <div class="flex items-center justify-between relative w-full max-w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Auto-Connect Machine ID</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="text" id="preferredMachineIdInput"
+                                   class="bg-[var(--box-color)] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[280px] text-[var(--text-primary)] text-[20px] p-2 text-center"
+                                   value="${settings.preferredMachineId || ''}"
+                                   placeholder="Leave empty to disable">
+                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                                    onclick="window.updateReaSetting('preferredMachineId', document.getElementById('preferredMachineIdInput').value || null)">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[270px]">
+                        Device ID for automatic machine connection on startup. Leave empty to disable.
+                    </p>
+                </div>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="flex flex-col items-start relative w-full max-w-full">
+                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
+                    <div class="flex items-center justify-between relative w-full max-w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Auto-Connect Scale ID</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="text" id="preferredScaleIdInput"
+                                   class="bg-[var(--box-color)] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[280px] text-[var(--text-primary)] text-[20px] p-2 text-center"
+                                   value="${settings.preferredScaleId || ''}"
+                                   placeholder="Leave empty to disable">
+                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                                    onclick="window.updateReaSetting('preferredScaleId', document.getElementById('preferredScaleIdInput').value || null)">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[270px]">
+                        Device ID for automatic scale connection on startup. Leave empty to disable.
+                    </p>
+                </div>
+            </div>
+
+            ${settings.webUiPath ? `
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+            <div class="flex flex-col items-start relative w-full max-w-full">
+                <div class="flex flex-col gap-[20px] items-start relative w-full max-w-full">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Web UI Path</p>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal text-[20px] text-[var(--text-secondary)] break-all">${settings.webUiPath}</p>
+                </div>
+            </div>
+            ` : ''}
 
         </div>
     `;
@@ -1482,15 +1585,6 @@ export function renderSmartChargingSettings() {
     const morningTime = reaSettings.nightModeMorningTime ?? 420;
     const chargingState = reaSettings.chargingState;
 
-    const modeOptions = [
-        { value: 'disabled', label: 'Disabled' },
-        { value: 'longevity', label: 'Longevity (80%)' },
-        { value: 'balanced', label: 'Balanced (90%)' },
-        { value: 'highAvailability', label: 'High Availability' }
-    ].map(({ value, label }) =>
-        `<option value="${value}" ${chargingMode === value ? 'selected' : ''}>${label}</option>`
-    ).join('');
-
     const phaseLabels = {
         inactive: 'Inactive',
         normal: 'Normal',
@@ -1603,23 +1697,62 @@ export function renderSmartChargingSettings() {
 
             <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Charging Mode</p>
-                        </div>
-                        <select id="charging-mode-select"
-                                class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[250px] text-white text-[24px] p-2"
-                                onchange="handleSmartChargingModeChange(this.value)">
-                            ${modeOptions}
-                        </select>
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Charging Mode</p>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Disabled turns off smart charging. Longevity caps at 80%, Balanced at 90%, High Availability charges to full when needed.
-                    </p>
+                    <div class="grid grid-cols-2 gap-[16px] w-full">
+                        ${[
+                            { value: 'disabled',        label: 'Disabled',          sub: 'No smart charging' },
+                            { value: 'longevity',       label: 'Longevity',         sub: 'Caps at 45–55%' },
+                            { value: 'balanced',        label: 'Balanced',          sub: 'Caps at 40–80%' },
+                            { value: 'highAvailability',label: 'High Availability', sub: 'Caps at 80–95%' }
+                        ].map(({ value, label, sub }) => {
+                            const active = chargingMode === value;
+                            return `<button
+                                onclick="handleSmartChargingModeChange('${value}')"
+                                aria-pressed="${active}"
+                                class="flex flex-col items-start justify-center gap-[6px] px-[24px] py-[20px] rounded-[14px] border-2 transition-colors duration-150 cursor-pointer text-left
+                                    ${active
+                                        ? 'bg-[#385a92] border-[#385a92] text-white'
+                                        : 'bg-[var(--box-color)] border-[var(--profile-button-outline-color)] text-[var(--text-primary)]'}">
+                                <span class="font-['Inter:Bold',sans-serif] font-bold text-[26px] leading-tight">${label}</span>
+                                <span class="font-['Inter:Regular',sans-serif] text-[19px] leading-snug opacity-80">${sub}</span>
+                            </button>`;
+                        }).join('')}
+                    </div>
                 </div>
             </div>
 
             ${nightModeSection}
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Low Battery Brightness Limit</p>
+                    </div>
+                    <div class="flex gap-[16px] w-full">
+                        ${[
+                            { value: true,  label: 'Enabled',  sub: 'Caps at 20% below 30%' },
+                            { value: false, label: 'Disabled', sub: 'No brightness limit' }
+                        ].map(({ value, label, sub }) => {
+                            const active = !!reaSettings.lowBatteryBrightnessLimit === value;
+                            return `<button
+                                onclick="window.updateReaSetting('lowBatteryBrightnessLimit', ${value})"
+                                aria-pressed="${active}"
+                                class="flex flex-col items-start justify-center gap-[6px] px-[24px] py-[20px] rounded-[14px] border-2 transition-colors duration-150 cursor-pointer text-left flex-1
+                                    ${active
+                                        ? 'bg-[#385a92] border-[#385a92] text-white'
+                                        : 'bg-[var(--box-color)] border-[var(--profile-button-outline-color)] text-[var(--text-primary)]'}">
+                                <span class="font-['Inter:Bold',sans-serif] font-bold text-[26px] leading-tight">${label}</span>
+                                <span class="font-['Inter:Regular',sans-serif] text-[19px] leading-snug opacity-80">${sub}</span>
+                            </button>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+
             ${statusSection}
         </div>
     `;
@@ -2264,7 +2397,7 @@ export function renderMainDescalingSettings() {
     `;
 }
 
-export function renderMainTransportSettings() {
+export function renderMainAirPurgeSettings() {
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
@@ -2273,19 +2406,19 @@ export function renderMainTransportSettings() {
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+            <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Transport Mode</p>
                         </div>
-                        <select disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2 cursor-not-allowed">
-                            <option>Disabled</option>
-                            <option>Enabled</option>
-                        </select>
+                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                                onclick="window.startAirPurge()">
+                            Start
+                        </button>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
+                        Purges remaining water from the group head. Run before packing the machine to prevent leaks during transport.
                     </p>
                 </div>
             </div>
@@ -2295,6 +2428,38 @@ export function renderMainTransportSettings() {
 
 // Render skin settings
 export function renderSkinSettings() {
+    const activeSkin = settingsCache.skinInfo;
+    const allSkins = settingsCache.allSkins || [];
+    const activeSkinId = activeSkin?.id || '';
+
+    const skinOptions = allSkins.map(s =>
+        `<option value="${s.id}" ${s.id === activeSkinId ? 'selected' : ''}>${s.name}${s.version ? ` v${s.version}` : ''}</option>`
+    ).join('');
+
+    const skinsTable = allSkins.length > 0 ? `
+        <table class="w-full text-[20px] text-[var(--text-primary)] border-collapse">
+            <thead>
+                <tr class="border-b border-[#c9c9c9] text-[#385a92] font-['Inter:Bold',sans-serif] font-bold">
+                    <th class="text-left py-3 pr-4">Name</th>
+                    <th class="text-left py-3 pr-4">Version</th>
+                    <th class="text-left py-3 pr-4">Type</th>
+                    <th class="text-left py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${allSkins.map(s => `
+                <tr class="border-b border-[#c9c9c9]">
+                    <td class="py-3 pr-4 font-['Inter:Regular',sans-serif]">${s.name}${s.id === activeSkinId ? ' <span class="text-[#385a92] font-bold">(active)</span>' : ''}</td>
+                    <td class="py-3 pr-4 font-['Inter:Regular',sans-serif] text-[var(--text-secondary)]">${s.version || 'N/A'}</td>
+                    <td class="py-3 pr-4 font-['Inter:Regular',sans-serif] text-[var(--text-secondary)]">${s.isBundled ? 'Bundled' : 'Installed'}</td>
+                    <td class="py-3">
+                        ${s.id !== activeSkinId ? `<button class="bg-[#385a92] h-[44px] rounded-[10px] px-4 text-white text-[18px] font-bold" onclick="window.setActiveSkin('${s.id}')">Set Active</button>` : '<span class="text-[var(--text-secondary)]">—</span>'}
+                    </td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
+    ` : `<p class="text-[var(--text-secondary)] text-[22px]">No skins available</p>`;
+
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
@@ -2309,8 +2474,34 @@ export function renderSkinSettings() {
                         </div>
                         <input type="checkbox" id="theme-toggle" class="toggle toggle-lg toggle-primary">
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
                         Toggle between light and dark themes
+                    </p>
+                </div>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Active Skin</p>
+                            ${activeSkin?.version ? `<p class="font-['Inter:Regular',sans-serif] font-normal text-[20px] text-[var(--text-secondary)] mt-1">v${activeSkin.version}</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <select id="active-skin-select"
+                                    class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[280px] text-white text-[22px] p-2">
+                                ${skinOptions || `<option value="${activeSkinId}">${activeSkin?.name || 'Current skin'}</option>`}
+                            </select>
+                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[120px] text-white text-[24px] font-bold"
+                                    onclick="window.setActiveSkin(document.getElementById('active-skin-select').value)">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
+                        Switch the active skin. The page will reload to apply the change.
                     </p>
                 </div>
             </div>
@@ -2319,16 +2510,26 @@ export function renderSkinSettings() {
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Skin 1</p>
+                            <p class="leading-[1.2]">Check for Updates</p>
                         </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold">
-                            Apply
+                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                                onclick="window.updateSkin()">
+                            Update
                         </button>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Apply the first skin/theme
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
+                        Check for and install the latest skin update
                     </p>
                 </div>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="flex flex-col gap-[20px] items-start relative w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Installed Skins</p>
+                </div>
+                ${skinsTable}
             </div>
         </div>
     `;
@@ -2644,6 +2845,110 @@ async function loadVisualizerSettings() {
     }
 }
 
+export function renderFirmwareUpdateSettings() {
+    const appInfo = settingsCache.appInfo;
+    const appInfoDetails = appInfo ? `
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="rounded-[10px] border border-[#c9c9c9] p-4 bg-[var(--box-color)]">
+                        <p class="text-[20px] font-['Inter:Bold',sans-serif] font-bold text-[#385a92]">Version</p>
+                        <p class="text-[24px] font-['Inter:Regular',sans-serif]">${appInfo.version} (${appInfo.buildNumber})</p>
+                        <p class="text-[16px] text-[var(--text-secondary)]">Full: ${appInfo.fullVersion}</p>
+                        <p class="text-[16px] text-[var(--text-secondary)]">${formatBuildTimestamp(appInfo.buildTime)}</p>
+                    </div>
+                    <div class="rounded-[10px] border border-[#c9c9c9] p-4 bg-[var(--box-color)]">
+                        <p class="text-[20px] font-['Inter:Bold',sans-serif] font-bold text-[#385a92]">Source</p>
+                        <p class="text-[24px] font-['Inter:Regular',sans-serif]">${appInfo.branch}</p>
+                        <p class="text-[16px] text-[var(--text-secondary)]">Commit: ${appInfo.commitShort}</p>
+                        <p class="text-[16px] text-[var(--text-secondary)]">App Store: ${appInfo.appStore ? 'Yes' : 'No'}</p>
+                    </div>
+                </div>
+            ` : `
+                <div class="rounded-[10px] border border-[#c9c9c9] p-4 bg-[var(--box-color)]">
+                    <p class="text-[20px] font-['Inter:Bold',sans-serif] font-bold text-[#385a92]">Update info</p>
+                    <p class="text-[24px] font-['Inter:Regular',sans-serif]">Fetching build metadata...</p>
+                </div>
+            `;
+
+    const machineInfo = settingsCache.machineInfo;
+    const machineExtra = formatMachineExtra(machineInfo?.extra);
+    const machineDetails = machineInfo ? `
+                <div class="rounded-[10px] border border-[#c9c9c9] p-4 bg-[var(--box-color)]">
+                    <p class="text-[20px] font-['Inter:Bold',sans-serif] font-bold text-[#385a92]">Machine</p>
+                    <p class="text-[24px] font-['Inter:Regular',sans-serif]">${machineInfo.model}</p>
+                    <p class="text-[16px] text-[var(--text-secondary)]">Version: ${machineInfo.version}</p>
+                    <p class="text-[16px] text-[var(--text-secondary)]">Serial: ${machineInfo.serialNumber}</p>
+                    <p class="text-[16px] text-[var(--text-secondary)]">GHC: ${machineInfo.GHC ? 'Enabled' : 'Disabled'}</p>
+                    <p class="text-[16px] text-[var(--text-secondary)] break-words">${machineExtra}</p>
+                </div>
+            ` : `
+                <div class="rounded-[10px] border border-[#c9c9c9] p-4 bg-[var(--box-color)]">
+                    <p class="text-[20px] font-['Inter:Bold',sans-serif] font-bold text-[#385a92]">Machine Info</p>
+                    <p class="text-[24px] font-['Inter:Regular',sans-serif]">Fetching machine info...</p>
+                </div>
+            `;
+
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Firmware Update</p>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Firmware File</p>
+                            <p id="firmware-filename" class="font-['Inter:Regular',sans-serif] font-normal text-[20px] text-[var(--text-secondary)] mt-1">No file selected</p>
+                        </div>
+                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                                onclick="document.getElementById('firmware-file-input').click()">
+                            Select File
+                        </button>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
+                        Select a firmware file to upload to the machine. The machine will restart automatically once the update is complete.
+                    </p>
+                </div>
+            </div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Upload</p>
+                        </div>
+                        <button id="firmware-upload-btn" class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled onclick="window.uploadFirmware()">
+                            Upload
+                        </button>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
+                        This may take several minutes. Do not power off the machine during the update.
+                    </p>
+                </div>
+            </div>
+
+            <input type="file" id="firmware-file-input" class="hidden" accept=".bin,.fw,.dfu"
+                   onchange="window.onFirmwareFileSelected(this)">
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="w-full flex flex-col gap-4">
+                <div class="flex flex-col gap-4">
+                    <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Build Information</p>
+                    ${appInfoDetails}
+                </div>
+                <div class="flex flex-col gap-4">
+                    <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Machine Details</p>
+                    ${machineDetails}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 // Render updates settings
 export function renderUpdatesSettings() {
     const appInfo = settingsCache.appInfo;
@@ -2844,12 +3149,14 @@ async function _preloadSettingsInternal() {
 
         // Fetch all settings in parallel using Promise.allSettled to handle individual failures
         // Fetch all settings in parallel using Promise.allSettled to handle individual failures
-        const [reaSettingsResult, de1SettingsResult, de1AdvancedSettingsResult, appInfoResult, machineInfoResult] = await Promise.allSettled([
+        const [reaSettingsResult, de1SettingsResult, de1AdvancedSettingsResult, appInfoResult, machineInfoResult, skinInfoResult, allSkinsResult] = await Promise.allSettled([
             getReaSettings(),
             getDe1Settings(),
             getDe1AdvancedSettings(),
             getAppInfo(),
-            getMachineInfo()
+            getMachineInfo(),
+            getDefaultSkin(),
+            getAllSkins()
         ]);
 
         // Process results and handle errors appropriately
@@ -2931,6 +3238,22 @@ async function _preloadSettingsInternal() {
             settingsCache.machineInfoError = machineInfoResult.reason?.message || 'Failed to load machine details';
         }
 
+        // Handle Skin Info result
+        if (skinInfoResult.status === 'fulfilled') {
+            settingsCache.skinInfo = skinInfoResult.value;
+        } else {
+            console.error('Error loading skin info:', skinInfoResult.reason);
+            settingsCache.skinInfoError = skinInfoResult.reason?.message || 'Failed to load skin info';
+        }
+
+        // Handle All Skins result
+        if (allSkinsResult.status === 'fulfilled') {
+            settingsCache.allSkins = allSkinsResult.value;
+        } else {
+            console.error('Error loading all skins:', allSkinsResult.reason);
+            settingsCache.allSkinsError = allSkinsResult.reason?.message || 'Failed to load skins';
+        }
+
         // Update cache with results
         settingsCache.rea = reaSettings;
         settingsCache.de1 = de1Settings;
@@ -2944,6 +3267,7 @@ async function _preloadSettingsInternal() {
         settingsCache.de1AdvancedLoading = false;
         settingsCache.appInfoLoading = false;
         settingsCache.machineInfoLoading = false;
+        settingsCache.skinInfoLoading = false;
 
         return { reaSettings, de1Settings, de1AdvancedSettings, appInfo, machineInfo };
     } catch (error) {
@@ -3106,6 +3430,78 @@ export async function initializeSettings() {
         } catch (error) {
             logger.error('Error starting descaling:', error);
             ui.showToast(`Failed to start descaling: ${error.message}`, 5000, 'error');
+        }
+    };
+
+    window.startAirPurge = async function() {
+        if (!confirm('Start air purge? The machine will run the air purge cycle.')) return;
+        try {
+            await setMachineState('airPurge');
+            ui.showToast('Air purge started', 3000, 'success');
+        } catch (error) {
+            logger.error('Error starting air purge:', error);
+            ui.showToast(`Failed to start air purge: ${error.message}`, 5000, 'error');
+        }
+    };
+
+    window.onFirmwareFileSelected = function(input) {
+        const file = input.files[0];
+        const label = document.getElementById('firmware-filename');
+        const uploadBtn = document.getElementById('firmware-upload-btn');
+        if (file) {
+            if (label) label.textContent = file.name;
+            if (uploadBtn) uploadBtn.disabled = false;
+        } else {
+            if (label) label.textContent = 'No file selected';
+            if (uploadBtn) uploadBtn.disabled = true;
+        }
+    };
+
+    window.uploadFirmware = async function() {
+        const input = document.getElementById('firmware-file-input');
+        const file = input?.files[0];
+        if (!file) return;
+
+        const uploadBtn = document.getElementById('firmware-upload-btn');
+        if (uploadBtn) {
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+        }
+
+        try {
+            ui.showToast('Uploading firmware — this may take several minutes...', 10000, 'info');
+            await uploadFirmware(file);
+            ui.showToast('Firmware uploaded successfully. Restart the machine to apply.', 8000, 'success');
+        } catch (error) {
+            logger.error('Error uploading firmware:', error);
+            ui.showToast(`Firmware upload failed: ${error.message}`, 5000, 'error');
+            if (uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload';
+            }
+        }
+    };
+
+    window.setActiveSkin = async function(skinId) {
+        if (!skinId) return;
+        try {
+            await setDefaultSkin(skinId);
+            ui.showToast('Active skin updated. Reloading...', 2000, 'success');
+            setTimeout(() => location.reload(), 2000);
+        } catch (error) {
+            logger.error('Error setting active skin:', error);
+            ui.showToast(`Failed to set active skin: ${error.message}`, 5000, 'error');
+        }
+    };
+
+    window.updateSkin = async function() {
+        try {
+            ui.showToast('Checking for skin updates...', 3000, 'info');
+            await updateSkins();
+            ui.showToast('Skin updated successfully. Reload the page to apply.', 5000, 'success');
+        } catch (error) {
+            logger.error('Error updating skin:', error);
+            ui.showToast(`Failed to update skin: ${error.message}`, 5000, 'error');
         }
     };
     window.updateSteamSetting = updateSteamSetting;

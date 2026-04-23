@@ -1546,3 +1546,31 @@ export async function deletePresenceSchedule(id) {
         throw error;
     }
 }
+
+export async function getAllSkins() {
+    const response = await fetch(`${API_BASE_URL}/webui/skins`);
+    if (!response.ok) throw new Error(`Failed to get skins: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
+export async function getDefaultSkin() {
+    const response = await fetch(`${API_BASE_URL}/webui/skins/default`);
+    if (!response.ok) throw new Error(`Failed to get default skin: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
+export async function setDefaultSkin(skinId) {
+    const response = await fetch(`${API_BASE_URL}/webui/skins/default`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skinId })
+    });
+    if (!response.ok) throw new Error(`Failed to set default skin: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
+export async function updateSkins() {
+    const response = await fetch(`${API_BASE_URL}/webui/skins/update`, { method: 'POST' });
+    if (!response.ok) throw new Error(`Failed to update skins: ${response.status} ${response.statusText}`);
+    return response.json();
+}
