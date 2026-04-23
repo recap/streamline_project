@@ -297,7 +297,7 @@ async function handleProfileClick(index) {
     }
     // Add a unique identifier to track this specific call
     const callId = Date.now() + Math.random();
-    logger.info(`handleProfileClick called with index ${index}, callId: ${callId}`);
+    logger.info(`handleProfileClick called with index ${index}, callId: ${callId}, profileUpdateInProgress: ${profileUpdateInProgress}`);
 
     // Check the global flag to prevent duplicate execution
     if (profileUpdateInProgress) {
@@ -322,7 +322,13 @@ async function handleProfileClick(index) {
 
     if (!profileRecord || !profileRecord.profile) {
         logger.warn(`Button ${index} has no profile assigned or profile data is missing.`);
-        showToast('No profile assigned. Double tap or long press to assign a profile.', 4000, 'info');
+        logger.info(`[handleProfileClick] Attempting to show toast for index: ${index}`);
+        try {
+            showToast('No profile assigned. Double tap or long press to assign a profile.', 4000, 'info');
+        } catch (toastError) {
+            logger.error('Failed to show toast:', toastError);
+            alert('No profile assigned. Double tap or long press to assign a profile.');
+        }
         // Reset the flag before returning
         profileUpdateInProgress = false;
         // Remove waiting state if there was an error
@@ -463,9 +469,9 @@ async function handleDoubleClick(index) {
         await saveAssignments();
         updateButtonUI();
     } else {
-        logger.info(`Double-click on unassigned button ${index}. Redirect to profile selector.`);
-        handleLongPress(index);
-        // await loadPage('src/profiles/profile_selector.html');
+        logger.info(`Double-click on unassigned button ${index}. Navigating to profile selector.`);
+        sessionStorage.setItem('pendingAssignmentIndex', index);
+        loadPage('src/profiles/profile_selector.html');
     }
 }
 
@@ -477,7 +483,7 @@ async function handleLongPress(index) {
     const isAssigned = favoriteAssignments[index];
 
     if (isAssigned) {
-        logger.info(`Clearing assignment for favorite button ${index}`);
+        logger.info(`[handleLongPress] Clearing assignment for favorite button ${index}`);
         favoriteAssignments[index] = null;
         await saveAssignments();
         updateButtonUI();
@@ -697,15 +703,18 @@ export async function init() {
 
             const startPress = (e) => {
                 e.preventDefault();
+                // RESET: Clear stale state from previous interactions
+                isProcessing = false;
+                // Clear only the long press timer - preserve clickTimer for double-click detection
                 clearTimeout(pressTimer);
+                logger.debug(`[startPress] index: ${index}, pressTimer cleared, isProcessing reset`);
                 pressTimer = setTimeout(() => {
-                    pressTimer = null; // Long press occurred
                     handleLongPress(index);
-
                 }, LONG_PRESS_DURATION);
             };
 
             const endPress = async () => {
+                logger.debug(`[endPress] index: ${index}, pressTimer: ${pressTimer !== null}, clickTimer: ${!!clickTimer}, isProcessing: ${isProcessing}`);
                 if (pressTimer !== null) { // It's a tap/click, not a long press
                     clearTimeout(pressTimer);
 
