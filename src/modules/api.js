@@ -1569,6 +1569,18 @@ export async function setDefaultSkin(skinId) {
     return response.json();
 }
 
+export async function enablePlugin(pluginId) {
+    const response = await fetch(`${API_BASE_URL}/plugins/${encodeURIComponent(pluginId)}/enable`, { method: 'POST' });
+    if (!response.ok) throw new Error(`Failed to enable plugin ${pluginId}: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
+export async function disablePlugin(pluginId) {
+    const response = await fetch(`${API_BASE_URL}/plugins/${encodeURIComponent(pluginId)}/disable`, { method: 'POST' });
+    if (!response.ok) throw new Error(`Failed to disable plugin ${pluginId}: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
 export async function updateSkins() {
     const response = await fetch(`${API_BASE_URL}/webui/skins/update`, { method: 'POST' });
     if (!response.ok) throw new Error(`Failed to update skins: ${response.status} ${response.statusText}`);

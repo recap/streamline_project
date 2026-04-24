@@ -101,7 +101,7 @@ function renderErrorState(title, message) {
                 <p class="leading-[1.2]">${title}</p>
             </div>
             <div class="text-red-500 p-4 text-[24px] text-center w-full">Failed to load settings: ${message}</div>
-            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold mx-auto mt-4" onclick="window.retryLoadSettings()">Retry</button>
+            <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold mx-auto mt-4" onclick="window.retryLoadSettings()">Retry</button>
         </div>
     `;
 }
@@ -115,6 +115,9 @@ function updateSettingsContentArea(category) {
             setTimeout(() => {
                 ui.initThemeToggle();
             }, 100);
+        }
+        if (category === 'plugins') {
+            setTimeout(() => window.loadPluginList?.(), 0);
         }
     }
 }
@@ -153,7 +156,6 @@ const settingsTree = {
     'machine': {
         name: 'Machine',
         subcategories: [
-            { id: 'fanthreshold', name: 'Fan Threshold', settingsCategory: 'fanthreshold' },
             { id: 'usbchargermode', name: 'USB Charger Mode', settingsCategory: 'usbchargermode' }
         ]
     },
@@ -180,18 +182,16 @@ const settingsTree = {
         name: 'Extensions',
         subcategories: [
             { id: 'extention1', name: 'Visualizer', settingsCategory: 'extensions' },
-            { id: 'extention2', name: 'Extention 2', settingsCategory: 'extensions' }
+            { id: 'extention2', name: 'Plugins', settingsCategory: 'plugins' }
         ]
     },
     'miscellaneous': {
         name: 'Miscellaneous',
         subcategories: [
-            { id: 'reasettings', name: 'Rea settings', settingsCategory: 'rea' },
+            { id: 'reasettings', name: 'Streamline-Bridge Settings', settingsCategory: 'rea' },
             { id: 'brightness', name: 'Brightness', settingsCategory: 'brightness' },
             { id: 'wakelock', name: 'Wake Lock', settingsCategory: 'wakelock' },
             { id: 'presence', name: 'Presence Detection', settingsCategory: 'presence' },
-            { id: 'appversion', name: 'App Version', settingsCategory: 'appversion' },
-            { id: 'unitssettings', name: 'Units Settings', settingsCategory: 'language' },
             { id: 'fontsize', name: 'Font Size', settingsCategory: 'fontsize' },
             { id: 'resolution', name: 'Resolution', settingsCategory: 'resolution' },
             { id: 'smartcharging', name: 'Smart Charging', settingsCategory: 'smartcharging' },
@@ -209,8 +209,8 @@ const settingsTree = {
     'usermanual': {
         name: 'User Manual',
         subcategories: [
-            { id: 'onlinehelp', name: 'Online Help', settingsCategory: 'help' },
-            { id: 'tutorials', name: 'Tutorials', settingsCategory: 'help' }
+            { id: 'onlinehelp', name: 'Help & Tutorials', settingsCategory: 'help' },
+            { id: 'feedback', name: 'Send Feedback', settingsCategory: 'feedback' }
         ]
     }
 };
@@ -455,6 +455,8 @@ export function renderSettingsContent(category) {
         case 'language':
         case 'selectlanguage':
             return renderLanguageSettings();
+        case 'plugins':
+            return renderPluginManagerSettings();
         case 'extensions':
         case 'extention1':
         case 'extention2':
@@ -467,11 +469,12 @@ export function renderSettingsContent(category) {
             return renderWakeLockSettings();
         case 'presence':
             return renderPresenceSettings();
-        case 'appversion':
-            return renderAppVersionSettings();
-        case 'fontsize':
-        case 'resolution':
         case 'unitssettings':
+            return renderUnitsSettings();
+        case 'fontsize':
+            return renderFontSizeSettings();
+        case 'resolution':
+            return renderResolutionSettings();
         case 'machineadvancedsettings':
         case 'misc':
         case 'miscellaneous':
@@ -481,6 +484,8 @@ export function renderSettingsContent(category) {
         case 'firmware':
         case 'firmwareupdate':
             return renderFirmwareUpdateSettings();
+        case 'feedback':
+            return renderFeedbackSettings();
         case 'usermanual':
         case 'onlinehelp':
         case 'tutorials':
@@ -534,17 +539,18 @@ export function renderFlowMultiplierSettings(settings) {
                             <p id="weight-flow-multiplier-label" class="leading-[1.2]">Weight Flow Multiplier</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="weightFlowMultiplierInput" aria-labelledby="weight-flow-multiplier-label" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center max-w-[150px]"
+                            <input type="number" id="weightFlowMultiplierInput" aria-labelledby="weight-flow-multiplier-label"
+                                   class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${settings.weightFlowMultiplier !== undefined ? settings.weightFlowMultiplier : 1.0}"
                                    step="0.1" min="0" max="5">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold max-w-[100px]"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     aria-label="Save weight flow multiplier setting"
                                     onclick="window.updateReaSetting('weightFlowMultiplier', parseFloat(document.getElementById('weightFlowMultiplierInput').value))">
                                 Save
                             </button>
                         </div>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words">
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[220px]">
                         Multiplier for projected weight calculation. Higher values stop shots earlier.
                     </p>
                 </div>
@@ -562,16 +568,17 @@ export function renderFlowMultiplierSettings(settings) {
                             <p id="volume-flow-multiplier-label" class="leading-[1.2]">Volume Flow Multiplier (s)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="volumeFlowMultiplierInput" aria-labelledby="volume-flow-multiplier-label" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center max-w-[150px]"
+                            <input type="number" id="volumeFlowMultiplierInput" aria-labelledby="volume-flow-multiplier-label"
+                                   class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${settings.volumeFlowMultiplier !== undefined ? settings.volumeFlowMultiplier : 0.3}"
                                    step="0.05" min="0" max="2">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold max-w-[100px]"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateReaSetting('volumeFlowMultiplier', parseFloat(document.getElementById('volumeFlowMultiplierInput').value))">
                                 Save
                             </button>
                         </div>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words">
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[220px]">
                         Look-ahead time in seconds for projected volume calculation. Accounts for system lag.
                     </p>
                 </div>
@@ -586,7 +593,7 @@ export function renderReaSettingsForm(settings) {
         return `
             <div class="flex flex-col gap-[60px] items-start relative w-full max-w-full overflow-x-hidden">
                 <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] not-italic relative text-[var(--text-primary)] text-[36px] text-center w-full">
-                    <p class="leading-[1.2]">REA Application Settings</p>
+                    <p class="leading-[1.2]">Application Settings</p>
                 </div>
                 <div class="text-red-500 p-4 text-[24px]">Failed to load REA settings</div>
             </div>
@@ -719,10 +726,10 @@ export function renderReaSettingsForm(settings) {
                         </div>
                         <div class="flex items-center gap-3">
                             <input type="text" id="preferredMachineIdInput"
-                                   class="bg-[var(--box-color)] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[280px] text-[var(--text-primary)] text-[20px] p-2 text-center"
+                                   class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[320px] text-[var(--text-primary)] text-[22px] font-bold text-center"
                                    value="${settings.preferredMachineId || ''}"
                                    placeholder="Leave empty to disable">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateReaSetting('preferredMachineId', document.getElementById('preferredMachineIdInput').value || null)">
                                 Save
                             </button>
@@ -744,10 +751,10 @@ export function renderReaSettingsForm(settings) {
                         </div>
                         <div class="flex items-center gap-3">
                             <input type="text" id="preferredScaleIdInput"
-                                   class="bg-[var(--box-color)] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[280px] text-[var(--text-primary)] text-[20px] p-2 text-center"
+                                   class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[320px] text-[var(--text-primary)] text-[22px] font-bold text-center"
                                    value="${settings.preferredScaleId || ''}"
                                    placeholder="Leave empty to disable">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateReaSetting('preferredScaleId', document.getElementById('preferredScaleIdInput').value || null)">
                                 Save
                             </button>
@@ -877,45 +884,86 @@ export function renderFanThresholdSettings(settings) {
         return `
             <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
                 <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                    <p class="leading-[1.2]">Fan Threshold Settings</p>
+                    <p class="leading-[1.2]">Fan Threshold</p>
                 </div>
                 <div class="text-red-500 p-4 text-[24px]">Failed to load DE1 settings</div>
             </div>
         `;
     }
 
+    const fanVal = settings.fan !== undefined ? settings.fan : 40;
+    const pct = Math.round(Math.max(0, Math.min(100, fanVal)));
+
     return `
-        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+        <div class="content-stretch flex flex-col gap-[48px] items-start relative w-full">
+
+            <!-- Page title -->
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Fan Threshold Settings</p>
+                <p class="leading-[1.2]">Fan Threshold</p>
             </div>
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
+            <!-- Central stepper card -->
+            <div class="w-full bg-[var(--box-color)] border-2 border-[var(--profile-button-outline-color)] rounded-[24px] p-[40px] flex flex-col items-center gap-[32px]">
 
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p id="fan-threshold-label" class="leading-[1.2]">Fan Threshold (°C)</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" id="fanThresholdInput" aria-labelledby="fan-threshold-label" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
-                                   value="${settings.fan !== undefined ? settings.fan : ''}"
-                                   step="1" min="0" max="100">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
-                                    aria-label="Save fan threshold setting"
-                                    onclick="window.updateDe1Setting('fan', parseInt(document.getElementById('fanThresholdInput').value))">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Temperature threshold at which the fan turns on
-                    </p>
+                <!-- Label row -->
+                <div class="flex items-center gap-[10px]">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#385a92]">
+                        <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                    </svg>
+                    <span class="text-[#385a92] text-[24px] font-bold tracking-wide uppercase">Fan Activation Temperature</span>
                 </div>
+
+                <!-- Stepper controls -->
+                <div class="flex items-center gap-[24px]">
+                    <button id="fan-decrement"
+                            onclick="window.stepFanThreshold(-1)"
+                            class="w-[88px] h-[88px] rounded-full border-2 border-[#385a92] bg-[var(--box-color)] text-[#385a92] text-[40px] font-bold flex items-center justify-center active:bg-[#385a92] active:text-white transition-colors select-none"
+                            aria-label="Decrease fan threshold">
+                        −
+                    </button>
+
+                    <div class="flex flex-col items-center gap-[4px]">
+                        <div class="flex items-end gap-[6px]">
+                            <span id="fan-display" class="text-[var(--text-primary)] font-bold leading-none"
+                                  style="font-size: 96px; font-family: 'Inter', monospace; letter-spacing: -2px;">${pct}</span>
+                            <span class="text-[#385a92] text-[36px] font-bold mb-[12px]">°C</span>
+                        </div>
+                        <input type="hidden" id="fanThresholdInput" value="${pct}">
+                    </div>
+
+                    <button id="fan-increment"
+                            onclick="window.stepFanThreshold(1)"
+                            class="w-[88px] h-[88px] rounded-full border-2 border-[#385a92] bg-[var(--box-color)] text-[#385a92] text-[40px] font-bold flex items-center justify-center active:bg-[#385a92] active:text-white transition-colors select-none"
+                            aria-label="Increase fan threshold">
+                        +
+                    </button>
+                </div>
+
+                <!-- Range track -->
+                <div class="w-full flex flex-col gap-[8px]">
+                    <div class="w-full h-[8px] rounded-full bg-[var(--profile-button-outline-color)] overflow-hidden">
+                        <div id="fan-track-fill"
+                             class="h-full rounded-full bg-[#385a92] transition-all duration-150"
+                             style="width: ${pct}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[18px] text-[var(--text-primary)] opacity-50">
+                        <span>0°C</span>
+                        <span>Range: 0 – 100°C</span>
+                        <span>100°C</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description + Save -->
+            <div class="flex items-center justify-between w-full gap-[24px]">
+                <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.5] text-[var(--text-primary)] text-[24px] flex-1">
+                    The fan activates when the machine's internal temperature exceeds this threshold.
+                    Lower values run the fan more often; higher values keep it quieter during operation.
+                </p>
+                <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold flex-shrink-0"
+                        onclick="window.updateDe1Setting('fan', parseInt(document.getElementById('fanThresholdInput').value))">
+                    Save
+                </button>
             </div>
         </div>
     `;
@@ -927,7 +975,7 @@ export function renderUsbChargerModeSettings(settings) {
         return `
             <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
                 <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                    <p class="leading-[1.2]">USB Charger Mode Settings</p>
+                    <p class="leading-[1.2]">USB Charger Mode</p>
                 </div>
                 <div class="text-red-500 p-4 text-[24px]">Failed to load DE1 settings</div>
             </div>
@@ -936,31 +984,26 @@ export function renderUsbChargerModeSettings(settings) {
 
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">USB Charger Mode Settings</p>
+                <p class="leading-[1.2]">USB Charger Mode</p>
             </div>
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p id="usb-charger-mode-label" class="leading-[1.2]">USB Charger Mode</p>
-                        </div>
-                        <select id="usbChargerModeSelect" aria-labelledby="usb-charger-mode-label" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2"
-                                onchange="window.updateDe1Setting('usb', this.value)">
-                            <option value="enable" ${settings.usb ? 'selected' : ''}>Enabled</option>
-                            <option value="disable" ${!settings.usb ? 'selected' : ''}>Disabled</option>
-                        </select>
+            <div class="flex items-center justify-between w-full">
+                <div class="flex flex-col gap-[8px]">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">USB Charger Mode</p>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
                         Controls whether the USB port provides power for charging devices
                     </p>
                 </div>
+                <input type="checkbox" id="usbChargerModeToggle"
+                       class="toggle toggle-lg toggle-primary"
+                       ${settings.usb ? 'checked' : ''}
+                       onchange="window.updateDe1Setting('usb', this.checked ? 'enable' : 'disable')">
             </div>
         </div>
     `;
@@ -997,10 +1040,10 @@ export function renderDe1AdvancedSettingsForm(settings) {
                             <p class="leading-[1.2]">Heater Phase 1 Flow (ml/s)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="heaterPh1FlowInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="heaterPh1FlowInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${settings.heaterPh1Flow !== undefined ? settings.heaterPh1Flow : ''}"
                                    step="0.1" min="0" max="10">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateDe1AdvancedSetting('heaterPh1Flow', parseFloat(document.getElementById('heaterPh1FlowInput').value))">
                                 Save
                             </button>
@@ -1024,10 +1067,10 @@ export function renderDe1AdvancedSettingsForm(settings) {
                             <p class="leading-[1.2]">Heater Phase 2 Flow (ml/s)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="heaterPh2FlowInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="heaterPh2FlowInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${settings.heaterPh2Flow !== undefined ? settings.heaterPh2Flow : ''}"
                                    step="0.1" min="0" max="10">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateDe1AdvancedSetting('heaterPh2Flow', parseFloat(document.getElementById('heaterPh2FlowInput').value))">
                                 Save
                             </button>
@@ -1057,7 +1100,7 @@ export function renderUserManualSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Online Help</p>
                         </div>
-                        <a href="https://decentespresso.com/support/submit" target="_blank" class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold flex items-center justify-center">
+                        <a href="https://decentespresso.com/support/submit" target="_blank" class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold flex items-center justify-center">
                             Visit
                         </a>
                     </div>
@@ -1078,7 +1121,7 @@ export function renderUserManualSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Tutorials</p>
                         </div>
-                        <a href="https://decentespresso.com/doc/quickstart/" target="_blank" class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold flex items-center justify-center">
+                        <a href="https://decentespresso.com/doc/quickstart/" target="_blank" class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold flex items-center justify-center">
                             View
                         </a>
                     </div>
@@ -1093,7 +1136,7 @@ export function renderUserManualSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Start writing your own skin.</p>
                         </div>
-                        <a href="https://github.com/tadelv/reaprime/blob/main/doc/Skins.md#skinsmd" target="_blank" class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold flex items-center justify-center">
+                        <a href="https://github.com/tadelv/reaprime/blob/main/doc/Skins.md#skinsmd" target="_blank" class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold flex items-center justify-center">
                             View
                         </a>
                     </div>
@@ -1101,6 +1144,120 @@ export function renderUserManualSettings() {
                         Learn how to use streamline-bridge to create custom skins and more.
                     </p>
                 </div>
+            </div>
+        </div>
+    `;
+}
+
+// Render Feedback / bug report page
+// Bot token with Issues: write scope on allofmeng/streamline_project only.
+// Fine-grained PAT — replace this value after creating the token on GitHub.
+const FEEDBACK_BOT_TOKEN = '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';
+
+export function renderFeedbackSettings() {
+    const categories = [
+        { value: 'bug',         label: 'Bug Report',       sub: 'Something isn\'t working' },
+        { value: 'enhancement', label: 'Feature Request',  sub: 'Suggest an improvement'   },
+        { value: 'question',    label: 'General Feedback', sub: 'Share thoughts or ideas'   },
+    ];
+
+    const categoryCards = categories.map(({ value, label, sub }) => `
+        <button data-feedback-card="${value}"
+                aria-pressed="${value === 'bug'}"
+                onclick="window.selectFeedbackCategory('${value}')"
+                class="flex flex-col items-start gap-[6px] p-[20px] rounded-[14px] border-2 transition-colors
+                       ${value === 'bug'
+                           ? 'bg-[#385a92] border-[#385a92] text-white'
+                           : 'bg-[var(--box-color)] border-[var(--profile-button-outline-color)] text-[var(--text-primary)]'}">
+            <span class="text-[22px] font-bold leading-tight">${label}</span>
+            <span class="text-[18px] opacity-75 leading-tight">${sub}</span>
+        </button>
+    `).join('');
+
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Send Feedback</p>
+            </div>
+
+            <!-- Category -->
+            <div class="flex flex-col gap-[20px] w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Category</p>
+                </div>
+                <input type="hidden" id="feedback-category" value="bug">
+                <div class="grid grid-cols-3 gap-[16px] w-full">
+                    ${categoryCards}
+                </div>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <!-- Title -->
+            <div class="flex flex-col gap-[20px] w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Title</p>
+                </div>
+                <input type="text" id="feedback-title"
+                       class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-full text-[var(--text-primary)] text-[24px] px-[28px]"
+                       placeholder="Short summary of your feedback…">
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <!-- Contact email (optional) -->
+            <div class="flex flex-col gap-[20px] w-full">
+                <div class="flex flex-col gap-[8px]">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Contact Email <span class="text-[22px] font-normal opacity-60">(optional)</span></p>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
+                        Leave your email if you'd like a follow-up on this report
+                    </p>
+                </div>
+                <input type="email" id="feedback-email"
+                       class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-full text-[var(--text-primary)] text-[24px] px-[28px]"
+                       placeholder="your@email.com">
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <!-- Description -->
+            <div class="flex flex-col gap-[20px] w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Description</p>
+                </div>
+                <textarea id="feedback-description"
+                          class="bg-[var(--box-color)] border-2 border-[#385a92] rounded-[14px] w-full min-h-[220px] text-[var(--text-primary)] text-[24px] p-[24px] resize-none"
+                          placeholder="Describe the issue or feedback in detail…"></textarea>
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <!-- System info toggle -->
+            <div class="flex items-center justify-between w-full">
+                <div class="flex flex-col gap-[8px]">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Attach System Info</p>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
+                        Appends app version and machine firmware to the report
+                    </p>
+                </div>
+                <input type="checkbox" id="feedback-attach-sysinfo" checked
+                       class="toggle toggle-lg toggle-primary">
+            </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <!-- Submit -->
+            <div class="flex flex-col gap-[20px] w-full">
+                <button id="feedback-submit-btn"
+                        onclick="window.submitFeedback()"
+                        class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold self-start">
+                    Submit
+                </button>
+                <div id="feedback-status" class="text-[22px] leading-[1.4]"></div>
             </div>
         </div>
     `;
@@ -1387,7 +1544,7 @@ export function renderAppVersionSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">App Version</p>
                         </div>
-                        <div class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold flex items-center justify-center">
+                        <div class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold flex items-center justify-center">
                             1.0.0
                         </div>
                     </div>
@@ -1401,6 +1558,89 @@ export function renderAppVersionSettings() {
 }
 
 // Render miscellaneous settings (legacy - for backward compatibility)
+export function renderUnitsSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Units Settings</p>
+            </div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Measurement Units</p>
+                        </div>
+                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
+                            <option>Metric</option>
+                            <option>Imperial</option>
+                        </select>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                        Select measurement units used throughout the application
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderFontSizeSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Font Size</p>
+            </div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Text Size</p>
+                        </div>
+                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
+                            <option>Small</option>
+                            <option selected>Medium</option>
+                            <option>Large</option>
+                        </select>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                        Adjust the text size for better readability
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderResolutionSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Resolution</p>
+            </div>
+
+            <div class="content-stretch flex flex-col items-start relative w-full">
+                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                    <div class="content-stretch flex items-center justify-between relative w-full">
+                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                            <p class="leading-[1.2]">Display Resolution</p>
+                        </div>
+                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
+                            <option>1920x1200</option>
+                            <option>1280x800</option>
+                            <option>1024x768</option>
+                        </select>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                        Set the display resolution
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 export function renderMiscellaneousSettings() {
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
@@ -1455,7 +1695,7 @@ export function renderMiscellaneousSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">App Version</p>
                         </div>
-                        <div class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold flex items-center justify-center">
+                        <div class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold flex items-center justify-center">
                             1.0.0
                         </div>
                     </div>
@@ -1631,7 +1871,7 @@ export function renderSmartChargingSettings() {
                     </div>
                     <input type="time"
                            id="night-mode-sleep-time"
-                           class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] p-2 text-center"
+                           class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[200px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                            value="${minutesToTimeString(sleepTime)}"
                            onchange="handleNightModeTimeChange('sleep', this.value)">
                 </div>
@@ -1654,7 +1894,7 @@ export function renderSmartChargingSettings() {
                     </div>
                     <input type="time"
                            id="night-mode-morning-time"
-                           class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] p-2 text-center"
+                           class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[200px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                            value="${minutesToTimeString(morningTime)}"
                            onchange="handleNightModeTimeChange('morning', this.value)">
                 </div>
@@ -1791,9 +2031,9 @@ export function renderSteamSettings() {
                             <p class="leading-[1.2]">Target Temperature (°C)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="steamTempInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="steamTempInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${targetTemp}" step="1" min="130" max="170">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateSteamSetting('targetTemperature', parseInt(document.getElementById('steamTempInput').value))">
                                 Save
                             </button>
@@ -1813,9 +2053,9 @@ export function renderSteamSettings() {
                             <p class="leading-[1.2]">Duration (seconds)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="steamDurationInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="steamDurationInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${duration}" step="5" min="10" max="120">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateSteamSetting('duration', parseInt(document.getElementById('steamDurationInput').value))">
                                 Save
                             </button>
@@ -1835,9 +2075,9 @@ export function renderSteamSettings() {
                             <p class="leading-[1.2]">Flow</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="steamFlowInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="steamFlowInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${flow.toFixed(1)}" step="0.1" min="0.1" max="2.5">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateSteamSetting('flow', parseFloat(document.getElementById('steamFlowInput').value))">
                                 Save
                             </button>
@@ -1906,9 +2146,9 @@ export function renderHotWaterSettings() {
                             <p class="leading-[1.2]">Target Temperature (°C)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="hotWaterTempInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="hotWaterTempInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${targetTemp}" step="1" min="50" max="95">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateHotWaterSetting('targetTemperature', parseInt(document.getElementById('hotWaterTempInput').value))">
                                 Save
                             </button>
@@ -1928,9 +2168,9 @@ export function renderHotWaterSettings() {
                             <p class="leading-[1.2]">Volume (ml)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="hotWaterVolumeInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="hotWaterVolumeInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${volume}" step="10" min="10" max="500">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateHotWaterSetting('volume', parseInt(document.getElementById('hotWaterVolumeInput').value))">
                                 Save
                             </button>
@@ -1950,9 +2190,9 @@ export function renderHotWaterSettings() {
                             <p class="leading-[1.2]">Duration (seconds)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="hotWaterDurationInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="hotWaterDurationInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${duration}" step="5" min="5" max="120">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateHotWaterSetting('duration', parseInt(document.getElementById('hotWaterDurationInput').value))">
                                 Save
                             </button>
@@ -1972,9 +2212,9 @@ export function renderHotWaterSettings() {
                             <p class="leading-[1.2]">Flow (ml/s)</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" id="hotWaterFlowInput" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
+                            <input type="number" id="hotWaterFlowInput" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center"
                                    value="${flow.toFixed(1)}" step="0.1" min="0.1" max="8">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold"
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
                                     onclick="window.updateHotWaterSetting('flow', parseFloat(document.getElementById('hotWaterFlowInput').value))">
                                 Save
                             </button>
@@ -2066,8 +2306,8 @@ export function renderQuickAdjustmentsSettings() {
                             <p class="leading-[1.2]">Flow Multiplier</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="1.0" step="0.1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
+                            <input type="number" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center" value="1.0" step="0.1">
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold">
                                 Save
                             </button>
                         </div>
@@ -2090,8 +2330,8 @@ export function renderQuickAdjustmentsSettings() {
                             <p class="leading-[1.2]">Steam</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="120" step="1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
+                            <input type="number" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center" value="120" step="1">
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold">
                                 Save
                             </button>
                         </div>
@@ -2114,8 +2354,8 @@ export function renderQuickAdjustmentsSettings() {
                             <p class="leading-[1.2]">Water</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="80" step="1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
+                            <input type="number" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center" value="80" step="1">
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold">
                                 Save
                             </button>
                         </div>
@@ -2138,8 +2378,8 @@ export function renderQuickAdjustmentsSettings() {
                             <p class="leading-[1.2]">Limit</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center" value="30" step="1">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[100px] text-white text-[24px] font-bold">
+                            <input type="number" class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center" value="30" step="1">
+                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold">
                                 Save
                             </button>
                         </div>
@@ -2155,7 +2395,7 @@ export function renderQuickAdjustmentsSettings() {
 
 // Render calibration settings with additional subcategories
 export function renderCalibFanSettings(settings) {
-    const fanValue = settings?.fan !== undefined ? settings.fan : '';
+    const fanValue = settings?.fan !== undefined ? settings.fan : 40;
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
@@ -2164,25 +2404,39 @@ export function renderCalibFanSettings(settings) {
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p id="calib-fan-label" class="leading-[1.2]">Fan Threshold (°C)</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" id="calibFanInput" aria-labelledby="calib-fan-label"
-                                   class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center"
-                                   value="${fanValue}" step="1" min="0" max="100">
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
-                                    aria-label="Save fan threshold"
-                                    onclick="window.updateDe1Setting('fan', parseInt(document.getElementById('calibFanInput').value))">
-                                Save
-                            </button>
-                        </div>
+            <div class="content-stretch flex flex-col items-center relative w-full">
+                <div class="border border-[#c9c9c9] border-solid content-stretch flex flex-col gap-[30px] items-center px-[60px] py-[30px] relative shrink-0 w-[590px]">
+                    <div class="content-stretch flex items-center relative shrink-0">
+                        <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.2] not-italic relative shrink-0 text-[var(--text-primary)] text-[30px]">
+                            Fan Threshold
+                        </p>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Temperature threshold at which the fan turns on
+                    <div class="content-stretch flex gap-[20px] h-[72px] items-center justify-center relative shrink-0 w-full">
+                        <button id="calib-fan-minus" aria-label="Decrease fan threshold"
+                                class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                                onclick="window.flashPlusMinusButton(this); window.adjustFanThreshold(-1);">
+                            <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10.416 25H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <div class="text-center text-[var(--text-primary)] text-[24px] font-bold bg-transparent border-none flex items-center justify-center"
+                             style="width: 130px;">
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="calibFanInput"
+                                   class="text-center text-[var(--text-primary)] text-[24px] font-bold bg-transparent border-none w-full"
+                                   value="${fanValue}" step="1" min="0" max="100"
+                                   onchange="window.updateDe1Setting('fan', parseInt(this.value))">
+                            <span class="ml-2 text-nowrap">°C</span>
+                        </div>
+                        <button id="calib-fan-plus" aria-label="Increase fan threshold"
+                                class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                                onclick="window.flashPlusMinusButton(this); window.adjustFanThreshold(1);">
+                            <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24.9993 10.4165V39.5832M10.416 24.9998H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full text-center">
+                        Temperature threshold at which the fan turns on (0–100°C)
                     </p>
                 </div>
             </div>
@@ -2205,7 +2459,7 @@ export function renderCalibDefaultLoadSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Default Load Settings</p>
                         </div>
-                        <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                        <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
                             Reset
                         </button>
                     </div>
@@ -2233,7 +2487,7 @@ export function renderCalibRefillKitSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Refill Kit</p>
                         </div>
-                        <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                        <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
                             Calibrate
                         </button>
                     </div>
@@ -2262,8 +2516,8 @@ export function renderCalibVoltageSettings() {
                             <p class="leading-[1.2]">Voltage</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center cursor-not-allowed" value="120" step="0.1">
-                            <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                            <input type="number" disabled class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center cursor-not-allowed" value="120" step="0.1">
+                            <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
                                 Save
                             </button>
                         </div>
@@ -2293,8 +2547,8 @@ export function renderCalibStopAtWeightSettings() {
                             <p class="leading-[1.2]">Stop at Weight</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center cursor-not-allowed" value="36" step="0.1">
-                            <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                            <input type="number" disabled class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center cursor-not-allowed" value="36" step="0.1">
+                            <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
                                 Save
                             </button>
                         </div>
@@ -2353,8 +2607,8 @@ export function renderCalibSteamSettings() {
                             <p class="leading-[1.2]">Steam Calibration</p>
                         </div>
                         <div class="flex items-center gap-4">
-                            <input type="number" disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[10px] w-[150px] text-white text-[24px] p-2 text-center cursor-not-allowed" value="120" step="1">
-                            <button disabled class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold cursor-not-allowed">
+                            <input type="number" disabled class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center cursor-not-allowed" value="120" step="1">
+                            <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
                                 Save
                             </button>
                         </div>
@@ -2383,7 +2637,7 @@ export function renderMainDescalingSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Machine Descaling</p>
                         </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                        <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold"
                                 onclick="window.startDescaling()">
                             Start
                         </button>
@@ -2412,7 +2666,7 @@ export function renderMainAirPurgeSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Transport Mode</p>
                         </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                        <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold"
                                 onclick="window.startAirPurge()">
                             Start
                         </button>
@@ -2431,10 +2685,6 @@ export function renderSkinSettings() {
     const activeSkin = settingsCache.skinInfo;
     const allSkins = settingsCache.allSkins || [];
     const activeSkinId = activeSkin?.id || '';
-
-    const skinOptions = allSkins.map(s =>
-        `<option value="${s.id}" ${s.id === activeSkinId ? 'selected' : ''}>${s.name}${s.version ? ` v${s.version}` : ''}</option>`
-    ).join('');
 
     const skinsTable = allSkins.length > 0 ? `
         <table class="w-full text-[20px] text-[var(--text-primary)] border-collapse">
@@ -2482,27 +2732,35 @@ export function renderSkinSettings() {
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Active Skin</p>
-                            ${activeSkin?.version ? `<p class="font-['Inter:Regular',sans-serif] font-normal text-[20px] text-[var(--text-secondary)] mt-1">v${activeSkin.version}</p>` : ''}
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <select id="active-skin-select"
-                                    class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[280px] text-white text-[22px] p-2">
-                                ${skinOptions || `<option value="${activeSkinId}">${activeSkin?.name || 'Current skin'}</option>`}
-                            </select>
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[120px] text-white text-[24px] font-bold"
-                                    onclick="window.setActiveSkin(document.getElementById('active-skin-select').value)">
-                                Apply
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full pr-[220px]">
-                        Switch the active skin. The page will reload to apply the change.
-                    </p>
+            <div class="content-stretch flex flex-col gap-[24px] items-start relative w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Active Skin</p>
+                </div>
+                <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[22px] w-full">
+                    Tap a skin to make it active. The page will reload to apply.
+                </p>
+                <div class="grid grid-cols-2 gap-[14px] w-full">
+                    ${(allSkins.length > 0 ? allSkins : (activeSkin ? [activeSkin] : [])).map(s => {
+                        const isActive = s.id === activeSkinId;
+                        return `
+                        <button
+                            onclick="${isActive ? '' : `window.setActiveSkin('${s.id}')`}"
+                            aria-pressed="${isActive}"
+                            ${isActive ? 'disabled' : ''}
+                            class="relative flex flex-col items-start justify-between gap-[10px] px-[22px] py-[18px] rounded-[14px] border-2 text-left transition-colors duration-150
+                                ${isActive
+                                    ? 'bg-[#385a92] border-[#385a92] text-white cursor-default'
+                                    : 'bg-[var(--box-color)] border-[var(--profile-button-outline-color)] text-[var(--text-primary)] cursor-pointer hover:border-[#385a92]'}">
+                            <div class="flex items-start justify-between w-full gap-2">
+                                <span class="font-['Inter:Bold',sans-serif] font-bold text-[24px] leading-tight">${s.name}</span>
+                                ${isActive ? `<span class="text-[14px] font-bold tracking-widest uppercase px-[10px] py-[4px] rounded-full bg-white bg-opacity-20 text-white shrink-0">Active</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-[10px]">
+                                ${s.version ? `<span class="text-[17px] font-['Inter:Regular',sans-serif] opacity-80">v${s.version}</span>` : ''}
+                                <span class="text-[14px] font-['Inter:Regular',sans-serif] opacity-60 uppercase tracking-wider">${s.isBundled ? 'Bundled' : 'Installed'}</span>
+                            </div>
+                        </button>`;
+                    }).join('')}
                 </div>
             </div>
 
@@ -2512,7 +2770,7 @@ export function renderSkinSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Check for Updates</p>
                         </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                        <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold"
                                 onclick="window.updateSkin()">
                             Update
                         </button>
@@ -2587,6 +2845,23 @@ export function renderLanguageSettings() {
             </div>
 
 
+    `;
+}
+
+// Render plugin manager — lists all installed plugins with enable/disable toggles
+export function renderPluginManagerSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
+            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
+                <p class="leading-[1.2]">Plugins</p>
+            </div>
+
+            <div id="plugin-list-container" class="flex flex-col gap-[0px] w-full">
+                <div class="flex items-center justify-center w-full py-[40px]">
+                    <span class="loading loading-spinner loading-lg text-[#385a92]"></span>
+                </div>
+            </div>
+        </div>
     `;
 }
 
@@ -2875,7 +3150,7 @@ export function renderFirmwareUpdateSettings() {
                 <div class="rounded-[10px] border border-[#c9c9c9] p-4 bg-[var(--box-color)]">
                     <p class="text-[20px] font-['Inter:Bold',sans-serif] font-bold text-[#385a92]">Machine</p>
                     <p class="text-[24px] font-['Inter:Regular',sans-serif]">${machineInfo.model}</p>
-                    <p class="text-[16px] text-[var(--text-secondary)]">Version: ${machineInfo.version}</p>
+                    <p class="text-[16px] text-[var(--text-secondary)]">Firmware Version: ${machineInfo.version}</p>
                     <p class="text-[16px] text-[var(--text-secondary)]">Serial: ${machineInfo.serialNumber}</p>
                     <p class="text-[16px] text-[var(--text-secondary)]">GHC: ${machineInfo.GHC ? 'Enabled' : 'Disabled'}</p>
                     <p class="text-[16px] text-[var(--text-secondary)] break-words">${machineExtra}</p>
@@ -2899,10 +3174,10 @@ export function renderFirmwareUpdateSettings() {
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Firmware File</p>
+                            <p class="leading-[1.2]">DE1 Firmware File</p>
                             <p id="firmware-filename" class="font-['Inter:Regular',sans-serif] font-normal text-[20px] text-[var(--text-secondary)] mt-1">No file selected</p>
                         </div>
-                        <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold"
+                        <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold"
                                 onclick="document.getElementById('firmware-file-input').click()">
                             Select File
                         </button>
@@ -2919,7 +3194,7 @@ export function renderFirmwareUpdateSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Upload</p>
                         </div>
-                        <button id="firmware-upload-btn" class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                        <button id="firmware-upload-btn" class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled onclick="window.uploadFirmware()">
                             Upload
                         </button>
@@ -2937,7 +3212,7 @@ export function renderFirmwareUpdateSettings() {
 
             <div class="w-full flex flex-col gap-4">
                 <div class="flex flex-col gap-4">
-                    <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Build Information</p>
+                    <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Streamline-Bridge App Information</p>
                     ${appInfoDetails}
                 </div>
                 <div class="flex flex-col gap-4">
@@ -3004,7 +3279,7 @@ export function renderUpdatesSettings() {
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Firmware Update</div>
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold">Check</button>
+                            <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold">Check</button>
                         </div>
                         <p class="text-[24px] text-[var(--text-primary)]">Check for firmware updates</p>
                     </div>
@@ -3012,7 +3287,7 @@ export function renderUpdatesSettings() {
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">App Update</div>
-                            <button class="bg-[#385a92] h-[62.88px] rounded-[10px] w-[200px] text-white text-[24px] font-bold">Check</button>
+                            <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold">Check</button>
                         </div>
                         <p class="text-[24px] text-[var(--text-primary)]">Check for application updates</p>
                     </div>
@@ -3020,7 +3295,7 @@ export function renderUpdatesSettings() {
 
                 <div class="w-full flex flex-col gap-4">
                     <div class="flex flex-col gap-4">
-                        <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Build Information</p>
+                        <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Streamline-Bridge App Information</p>
                         ${appInfoDetails}
                     </div>
                     <div class="flex flex-col gap-4">
@@ -3422,6 +3697,148 @@ export async function initializeSettings() {
     window.updateDe1Setting = updateDe1Setting;
     window.updateDe1AdvancedSetting = updateDe1AdvancedSetting;
 
+    // Plugin manager
+    window.loadPluginList = async function() {
+        const container = document.getElementById('plugin-list-container');
+        if (!container) return;
+        try {
+            const { getPlugins } = await import('../modules/api.js');
+            const plugins = await getPlugins();
+            if (!plugins || plugins.length === 0) {
+                container.innerHTML = `<p class="text-[24px] text-[var(--text-primary)] opacity-60">No plugins installed.</p>`;
+                return;
+            }
+            container.innerHTML = plugins.map((p, i) => `
+                ${i > 0 ? '<div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>' : ''}
+                <div class="flex items-center justify-between w-full py-[30px] gap-[24px]">
+                    <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                        <div class="flex items-center gap-[12px]">
+                            <span class="font-bold text-[#385a92] text-[28px] leading-tight">${p.name || p.id}</span>
+                            <span class="text-[20px] text-[var(--text-primary)] opacity-50">v${p.version || '?'}</span>
+                        </div>
+                        ${p.description ? `<p class="text-[22px] text-[var(--text-primary)] leading-[1.4] opacity-75">${p.description}</p>` : ''}
+                        <span class="text-[18px] text-[var(--text-primary)] opacity-40 font-mono">${p.id}</span>
+                    </div>
+                    <label class="flex flex-col items-center gap-[6px] flex-shrink-0">
+                        <input type="checkbox" id="plugin-toggle-${CSS.escape(p.id)}"
+                               class="toggle toggle-lg toggle-primary"
+                               ${p.loaded ? 'checked' : ''}
+                               onchange="window.togglePlugin('${p.id}', this.checked)">
+                        <span class="text-[18px] text-[var(--text-primary)] opacity-60">${p.loaded ? 'Enabled' : 'Disabled'}</span>
+                    </label>
+                </div>
+            `).join('');
+        } catch (err) {
+            logger.error('Failed to load plugins:', err);
+            container.innerHTML = `<p class="text-[22px] text-red-500">Failed to load plugins: ${err.message}</p>`;
+        }
+    };
+
+    window.togglePlugin = async function(pluginId, enable) {
+        const toggle = document.getElementById(`plugin-toggle-${CSS.escape(pluginId)}`);
+        const label  = toggle?.nextElementSibling;
+        if (toggle) toggle.disabled = true;
+        try {
+            const { enablePlugin, disablePlugin } = await import('../modules/api.js');
+            if (enable) {
+                await enablePlugin(pluginId);
+            } else {
+                await disablePlugin(pluginId);
+            }
+            if (label) label.textContent = enable ? 'Enabled' : 'Disabled';
+            ui.showToast(`Plugin ${enable ? 'enabled' : 'disabled'}`, 2500, 'success');
+        } catch (err) {
+            logger.error('Failed to toggle plugin:', err);
+            ui.showToast(`Failed: ${err.message}`, 4000, 'error');
+            // Revert toggle on failure
+            if (toggle) toggle.checked = !enable;
+            if (label) label.textContent = enable ? 'Disabled' : 'Enabled';
+        } finally {
+            if (toggle) toggle.disabled = false;
+        }
+    };
+
+    window.selectFeedbackCategory = function(value) {
+        document.getElementById('feedback-category').value = value;
+        document.querySelectorAll('[data-feedback-card]').forEach(btn => {
+            const active = btn.dataset.feedbackCard === value;
+            btn.setAttribute('aria-pressed', active);
+            btn.classList.toggle('bg-[#385a92]', active);
+            btn.classList.toggle('border-[#385a92]', active);
+            btn.classList.toggle('text-white', active);
+            btn.classList.toggle('bg-[var(--box-color)]', !active);
+            btn.classList.toggle('border-[var(--profile-button-outline-color)]', !active);
+            btn.classList.toggle('text-[var(--text-primary)]', !active);
+        });
+    };
+
+    window.submitFeedback = async function() {
+        const category = document.getElementById('feedback-category')?.value || 'bug';
+        const title    = (document.getElementById('feedback-title')?.value || '').trim();
+        const desc     = (document.getElementById('feedback-description')?.value || '').trim();
+        const email    = (document.getElementById('feedback-email')?.value || '').trim();
+        const attachSys = document.getElementById('feedback-attach-sysinfo')?.checked;
+        const statusEl  = document.getElementById('feedback-status');
+        const submitBtn = document.getElementById('feedback-submit-btn');
+
+        if (!title) {
+            statusEl.innerHTML = '<span class="text-red-500">Please enter a title.</span>';
+            return;
+        }
+
+        let body = desc;
+        if (email) {
+            body += `\n\n---\n**Contact:** ${email}`;
+        }
+        if (attachSys) {
+            const appInfo     = settingsCache.appInfo;
+            const machineInfo = settingsCache.machineInfo;
+            body += '\n\n---\n**System Info**\n';
+            if (appInfo) {
+                body += `- App version: ${appInfo.version || ''} (${appInfo.fullVersion || ''})\n`;
+                body += `- Build: ${appInfo.buildNumber || ''} / ${appInfo.branch || ''} @ ${appInfo.commitShort || ''}\n`;
+            }
+            if (machineInfo) {
+                body += `- Machine: ${machineInfo.model || ''} v${machineInfo.version || ''}\n`;
+                body += `- Serial: ${machineInfo.serialNumber || ''}\n`;
+            }
+        }
+
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+        statusEl.innerHTML = '';
+
+        try {
+            const response = await fetch(
+                'https://api.github.com/repos/allofmeng/streamline_project/issues',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${FEEDBACK_BOT_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github+json',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    },
+                    body: JSON.stringify({ title, body, labels: [category] })
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || `HTTP ${response.status}`);
+            statusEl.innerHTML = `
+                <span class="text-green-600 font-bold text-[24px]">Submitted!</span>
+                <a href="${data.html_url}" target="_blank"
+                   class="ml-3 text-[#385a92] underline text-[22px]">
+                   View issue #${data.number}
+                </a>`;
+            document.getElementById('feedback-title').value = '';
+            document.getElementById('feedback-description').value = '';
+        } catch (err) {
+            logger.error('Feedback submit error:', err);
+            statusEl.innerHTML = `<span class="text-red-500 text-[22px]">Error: ${err.message}</span>`;
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
+        }
+    };
+
     window.startDescaling = async function() {
         if (!confirm('Start descaling cycle? The machine will run the descaling program. Make sure the descaling solution is prepared.')) return;
         try {
@@ -3553,10 +3970,18 @@ export async function initializeSettings() {
         const input = document.getElementById('tankTempInput');
         if (input) {
             let newValue = parseInt(input.value, 10) + change;
-            // Ensure value stays within bounds (10 to 40°C)
             newValue = Math.max(10, Math.min(40, newValue));
             input.value = newValue;
-            // Trigger the onchange event to update the setting
+            input.dispatchEvent(new Event('change'));
+        }
+    };
+
+    window.adjustFanThreshold = function(change) {
+        const input = document.getElementById('calibFanInput');
+        if (input) {
+            let newValue = parseInt(input.value, 10) + change;
+            newValue = Math.max(0, Math.min(100, newValue));
+            input.value = newValue;
             input.dispatchEvent(new Event('change'));
         }
     };
@@ -3911,8 +4336,10 @@ function renderDeviceListFromCache() {
                         device.name.toLowerCase().includes('weight')))
     );
 
-    renderDeviceList('bluetooth-machine-devices-container', machines, 'Machine');
-    renderDeviceList('bluetooth-scale-devices-container', scales, 'Scale');
+    renderDeviceList('bluetooth-machine-devices-container', machines, 'Machine',
+        settingsCache.rea?.preferredMachineId || '', 'preferredMachineId');
+    renderDeviceList('bluetooth-scale-devices-container', scales, 'Scale',
+        settingsCache.rea?.preferredScaleId || '', 'preferredScaleId');
 }
 
 // Bluetooth Functions
@@ -4248,36 +4675,58 @@ window.toggleAutoConnect = async function(toggleType) {
 
 // Render Bluetooth Machine settings
 export function renderBluetoothMachineSettings() {
-    // Render devices from WebSocket cache on initial render
-    setTimeout(() => {
-        renderDeviceListFromCache();
-    }, 0);
+    setTimeout(() => { renderDeviceListFromCache(); }, 0);
 
     return `
-        <div class="content-stretch justify-evenly gap-[60px] items-start relative w-full">
+        <div class="flex flex-col gap-[60px] items-start relative w-full max-w-full overflow-x-hidden">
+
+            <!-- Header -->
             <div class="flex justify-between items-center w-full">
-                <p class="font-['Inter:Semi_Bold',sans-serif] justify-evenly leading-[0] w-[1124px] not-italic relative text-[var(--text-primary)] text-[36px] text-center">Espresso Machine</p>
+                <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] not-italic relative text-[var(--text-primary)] text-[36px]">
+                    <p class="leading-[1.2]">Espresso Machine</p>
+                </div>
                 <button id="scan-machine-btn"
-                        class="border-[var(--mimoja-blue)] text-[var(--mimoja-blue)] h-[62px] rounded-[67.5px] border w-[139px] text-[24px]"
+                        class="border-[var(--mimoja-blue)] text-[var(--mimoja-blue)] h-[62px] rounded-[67.5px] border w-[139px] text-[24px] transition-colors duration-200 hover:bg-[var(--mimoja-blue)] hover:text-white"
                         onclick="window.scanForMachines()">
                     Scan
                 </button>
             </div>
 
-            <div id="bluetooth-machine-devices-container">
-                <!-- Machine devices will be populated dynamically via WebSocket -->
+            <!-- Divider -->
+            <div class="h-0 relative w-full">
+                <hr class="border-t border-[#c9c9c9] w-full" />
             </div>
 
-            <!-- Auto-connect toggle for machines -->
-            <div class="mt-6 p-4 bg-[var(--box-color)] rounded-[10px]">
-                <div class="flex items-center justify-between">
-                    <p class="text-[20px] text-[var(--text-secondary)]">Automatically connect to nearby machine.</p>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="auto-connect-machine-toggle" class="sr-only peer" onclick="window.toggleAutoConnect('machine')">
-                        <div class="w-11 h-6 bg-[var(--text-secondary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#385a92]"></div>
-                    </label>
+            <!-- Connected Device -->
+            <div class="flex flex-col gap-[20px] items-start relative w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Connected Device</p>
+                </div>
+                <div id="bluetooth-machine-devices-container" class="w-full">
+                    <!-- Machine devices will be populated dynamically via WebSocket -->
                 </div>
             </div>
+
+            <!-- Divider -->
+            <div class="h-0 relative w-full">
+                <hr class="border-t border-[#c9c9c9] w-full" />
+            </div>
+
+            <!-- Auto-Connect -->
+            <div class="flex items-center justify-between w-full">
+                <div class="flex flex-col gap-[8px]">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Auto Connect</p>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
+                        Automatically connect to a nearby machine on startup.
+                    </p>
+                </div>
+                <input type="checkbox" id="auto-connect-machine-toggle"
+                       class="toggle toggle-lg toggle-primary flex-shrink-0"
+                       onclick="window.toggleAutoConnect('machine')">
+            </div>
+
         </div>
     `;
 }
@@ -4443,19 +4892,23 @@ async function renderAllDevices() {
 }
 
 // Helper function to render a list of devices of a specific type
-function renderDeviceList(containerId, devices, type) {
+function renderDeviceList(containerId, devices, type, preferredId = '', settingKey = '') {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     if (devices.length > 0) {
-        container.innerHTML = renderSingleDeviceList(devices);
+        container.innerHTML = renderSingleDeviceList(devices, preferredId, settingKey);
     } else {
-        container.innerHTML = `<p class="text-[24px] text-[var(--text-primary)]">No ${type.toLowerCase()} devices found. Make sure your ${type.toLowerCase()} is powered on and in pairing mode.</p>`;
+        container.innerHTML = `
+            <div class="flex items-center gap-[16px] w-full bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] rounded-[20px] px-[28px] py-[24px] opacity-60">
+                <div class="w-[14px] h-[14px] rounded-full bg-[var(--profile-button-outline-color)] flex-shrink-0"></div>
+                <p class="text-[24px] text-[var(--text-primary)]">No ${type.toLowerCase()} found — tap Scan to search for nearby devices.</p>
+            </div>`;
     }
 }
 
 // Helper function to render a single list of devices with connection controls
-function renderSingleDeviceList(devices) {
+function renderSingleDeviceList(devices, preferredId = '', settingKey = '') {
     // Null/empty check - return empty string if no devices
     if (!devices || !Array.isArray(devices) || devices.length === 0) {
         return '';
@@ -4464,32 +4917,41 @@ function renderSingleDeviceList(devices) {
     let deviceItems = '';
 
     devices.forEach(device => {
-        // Skip devices without required properties
-        if (!device || !device.name) {
-            return;
-        }
+        if (!device || !device.name) return;
 
-        // Use the device's state property to determine connection status
         const isConnected = device.state === 'connected';
-        const statusClass = isConnected ? 'text-green-500' : 'text-red-500';
-        const statusText = isConnected ? 'Connected' : 'Disconnected';
+        const isPreferred = preferredId && device.id === preferredId;
         const buttonText = isConnected ? 'Disconnect' : 'Connect';
         const buttonAction = isConnected ? 'disconnect' : 'connect';
-        const buttonClass = isConnected ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600';
+        const safeId = (device.id || '').replace(/'/g, "\\'");
+        const safeSettingKey = settingKey.replace(/'/g, "\\'");
 
         deviceItems += `
-            <div class="flex items-center justify-between bg-[var(--profile-button-background-color)] rounded-[10px]  mb-3 shadow-sm">
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 rounded-full mr-3 ${isConnected ? 'bg-green-500' : 'bg-red-500'}"></div>
-                        <p class="text-[24px] text-[var(--text-primary)] truncate">${device.name}</p>
+            <div class="flex items-center justify-between w-full bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] rounded-[20px] px-[28px] py-[24px] mb-[16px]">
+                <div class="flex items-center gap-[16px] flex-1 min-w-0">
+                    <!-- Status dot -->
+                    <div class="relative flex-shrink-0">
+                        <div class="w-[14px] h-[14px] rounded-full ${isConnected ? 'bg-green-500' : 'bg-[var(--profile-button-outline-color)]'}"></div>
+                        ${isConnected ? '<div class="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-40"></div>' : ''}
                     </div>
-                    <p class="text-[18px] text-[var(--text-secondary)] break-all">ID: ${device.id || 'N/A'}</p>
-                    <p class="text-[18px] ${statusClass} capitalize">Status: ${device.state || 'unknown'}</p>
-                    <p class="text-[18px] text-[var(--text-secondary)] capitalize">Type: ${device.type || 'unknown'}</p>
+                    <div class="flex flex-col gap-[4px] min-w-0">
+                        <span class="text-[26px] font-bold text-[var(--text-primary)] truncate leading-tight">${device.name}</span>
+                        <span class="text-[18px] text-[var(--text-primary)] opacity-40 font-mono truncate">${device.id || 'N/A'}</span>
+                    </div>
                 </div>
-                <div class="flex gap-3 ml-4">
-                    <button class="bg-[#385a92] hover:bg-[#2c4a7a] h-[60px] rounded-[67.5px] w-[120px] text-white text-[18px] transition-colors duration-200 font-['Inter:Semi_Bold',sans-serif] justify-self-end"
+                <div class="flex items-center gap-[20px] flex-shrink-0 ml-[24px]">
+                    ${settingKey ? `
+                    <div class="flex flex-col items-center gap-[4px]">
+                        <span class="text-[16px] text-[var(--text-primary)] opacity-50">Preferred</span>
+                        <input type="checkbox" class="toggle toggle-md toggle-primary"
+                               ${isPreferred ? 'checked' : ''}
+                               onchange="window.setPreferredDevice('${safeSettingKey}', '${safeId}', this.checked)">
+                    </div>
+                    ` : ''}
+                    <span class="text-[20px] font-bold px-[16px] py-[6px] rounded-full ${isConnected ? 'bg-green-500/15 text-green-600' : 'bg-[var(--profile-button-outline-color)]/30 text-[var(--text-primary)] opacity-50'}">
+                        ${isConnected ? 'Connected' : 'Available'}
+                    </span>
+                    <button class="${isConnected ? 'border-2 border-[#385a92] text-[#385a92] hover:bg-[#385a92] hover:text-white' : 'bg-[#385a92] text-white hover:bg-[#2c4a7a]'} h-[62px] px-[32px] rounded-[67.5px] text-[22px] font-bold transition-colors duration-200"
                             onclick="window.handleDeviceConnection('${device.id}', '${buttonAction}')">
                         ${buttonText}
                     </button>
@@ -4497,8 +4959,6 @@ function renderSingleDeviceList(devices) {
             </div>
         `;
     });
-
-    // Add the auto-connect toggle at the bottom of the device list
 
     return deviceItems;
 }
@@ -4529,6 +4989,19 @@ window.handleDeviceConnection = async function(deviceId, action) {
     }
 };
 
+
+// Set or clear the preferred device for a given setting key
+window.setPreferredDevice = async function(settingKey, deviceId, isOn) {
+    const value = isOn ? deviceId : null;
+    try {
+        await window.updateReaSetting(settingKey, value);
+        // Re-render device lists so only one row shows as preferred
+        renderDeviceListFromCache();
+    } catch (error) {
+        console.error('Error setting preferred device:', error);
+        ui.showToast(`Failed to update preferred device: ${error.message}`, 5000, 'error');
+    }
+};
 
 // Function to scan for machines specifically
 window.scanForMachines = async function() {
