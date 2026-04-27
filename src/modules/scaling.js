@@ -97,9 +97,9 @@ export function initScaling() {
         const screenHeight = window.innerHeight;
 
         // DEBUG: Log scaling calculations
-        console.log('[DEBUG] updateScale called');
-        console.log('[DEBUG] screenWidth:', screenWidth, 'screenHeight:', screenHeight);
-        console.log('[DEBUG] designWidth:', designWidth, 'designHeight:', designHeight);
+        // console.log('[DEBUG] updateScale called');
+        // console.log('[DEBUG] screenWidth:', screenWidth, 'screenHeight:', screenHeight);
+        // console.log('[DEBUG] designWidth:', designWidth, 'designHeight:', designHeight);
 
         // Calculate aspect ratios
         const screenAspectRatio = screenWidth / screenHeight;

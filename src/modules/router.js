@@ -16,6 +16,7 @@ function getPageUrlFromQuery() {
     const pageMap = {
         'settings': 'src/settings/settings.html',
         'profile_selector': 'src/profiles/profile_selector.html',
+        'profile_editor': 'src/profiles/profile_editor.html',
     };
     return pageMap[page] || null;
 }
@@ -220,6 +221,18 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                         }
                     } catch (e) {
                         console.error('Router: Error initializing profile selector:', e);
+                    }
+                    mainContainer.classList.add('scaled');
+                } else if (pageUrl.includes('profile_editor.html') || pageUrl.endsWith('profile_editor.html')) {
+                    console.log('Router: Initializing profile editor...');
+                    try {
+                        const { initializeProfileEditor } = await import('./profile_editor.js?t=' + Date.now());
+                        if (initializeProfileEditor) {
+                            await initializeProfileEditor();
+                            console.log('Router: Profile editor initialized successfully.');
+                        }
+                    } catch (e) {
+                        console.error('Router: Error initializing profile editor:', e);
                     }
                     mainContainer.classList.add('scaled');
                 } else if (pageUrl.includes('settings.html') || pageUrl.endsWith('settings.html')) {

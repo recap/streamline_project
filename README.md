@@ -38,6 +38,17 @@ A modern web UI skin for the Decent Espresso DE1, built on top of [Streamline-Br
 - Upload, rename, hide, and delete profiles
 - Profile metadata display (author, notes, parameters)
 
+### Profile Editor
+- Full in-browser profile editor accessible via EDIT button in the profile selector
+- Inline step card editing — 4 steps visible at a time, horizontally scrollable
+- Per-step controls: name, temperature (−/+), pump type (Flow/Pressure), rate, transition (fast/smooth), exit condition, and message
+- Settings tab: target weight, volume, tank temperature, volume count start, beverage type
+- Review tab: plain-English step summaries, profile settings overview, and Plotly graph preview (pressure, flow, temperature scaled to shared y-axis with step boundary markers)
+- Auto-suffixes duplicate profile names on save (e.g. "My Profile (2)")
+- Saves user-edited copies to the Rea KV store (`/api/v1/store/streamline/{uuid}`) — original default profiles are never modified
+- KV-saved profiles are loaded and merged into the profile list on every selector load
+- RESET button in the selector right panel: deletes a KV copy and restores selection to the original parent profile, with confirmation dialog
+
 ### Shot History
 - Paginated shot history backed by IndexedDB
 - Tap any past shot to replay its data on the chart
@@ -84,7 +95,7 @@ A modern web UI skin for the Decent Espresso DE1, built on top of [Streamline-Br
 - [x] Bluetooth: Machine auto-connect toggle (scale auto-connect already works)
 
 ### Features
-- [ ] Advanced in-browser profile editor (create and edit profiles, not just upload/delete)
+- [x] Advanced in-browser profile editor (create and edit profiles, not just upload/delete)
 
 ---
 
@@ -122,6 +133,7 @@ src/
 │   ├── chart.js            # Plotly real-time shot graph
 │   ├── profileManager.js   # Profile CRUD
 │   ├── profile_selector.js # Profile browser UI
+│   ├── profile_editor.js   # In-browser profile editor (steps, settings, review)
 │   ├── history.js          # Shot history (IndexedDB + API)
 │   ├── shotData.js         # Shot metric display
 │   ├── waterTank.js        # Water level WebSocket

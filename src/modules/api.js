@@ -556,6 +556,58 @@ export async function uploadProfile(profileData) {
     return response.json();
 }
 
+// ─── KV Store Helpers ────────────────────────────────────────────────────────
+
+export async function getKVKeys(namespace) {
+    const response = await fetch(`${API_BASE_URL}/store/${encodeURIComponent(namespace)}`);
+    if (!response.ok) throw new Error(`KV getKeys failed: ${response.status}`);
+    return response.json(); // array of key strings
+}
+
+export async function getKVValue(namespace, key) {
+    const response = await fetch(`${API_BASE_URL}/store/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`);
+    if (!response.ok) throw new Error(`KV getValue failed: ${response.status}`);
+    return response.json();
+}
+
+export async function setKVValue(namespace, key, value) {
+    const response = await fetch(`${API_BASE_URL}/store/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value),
+    });
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`KV setValue failed: ${response.status} ${errorBody}`);
+    }
+    // 204 No Content — no body to parse
+}
+
+export async function deleteKVValue(namespace, key) {
+    const response = await fetch(`${API_BASE_URL}/store/${encodeURIComponent(namespace)}/${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(`KV deleteValue failed: ${response.status}`);
+}
+
+// ─── Profile API ─────────────────────────────────────────────────────────────
+
+export async function uploadProfileWithParent(profileData, parentId = null) {
+    const body = { profile: profileData };
+    if (parentId) body.parentId = parentId;
+    const response = await fetch(`${API_BASE_URL}/profiles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+        const errorBody = await response.text();
+        ui.showToast(`Error saving profile: ${errorBody}`, 5000, 'error');
+        throw new Error(`Failed to save profile. Status: ${response.status}`);
+    }
+    return response.json();
+}
+
 export async function deleteProfile(profileId) {
     const response = await fetch(`${API_BASE_URL}/profiles/${profileId}`, {
         method: 'DELETE',

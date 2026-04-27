@@ -2,7 +2,7 @@ import { init as initProfileManager, unhideProfile,availableProfiles, assignProf
 import { openDB } from './idb.js';
 import { logger } from './logger.js';
 import { initResizablePanels, showToast, initFullscreenHandler } from './ui.js';
-import { sendProfile, getWorkflow, updateWorkflow, callPluginEndpoint, getPluginSettings, verifyVisualizerCredentials } from './api.js';
+import { sendProfile, getWorkflow, updateWorkflow, callPluginEndpoint, getPluginSettings, verifyVisualizerCredentials, getKVKeys, getKVValue, deleteKVValue } from './api.js';
 import { initChart, plotProfile } from './chart.js';
 import { initI18n } from './i18n.js';
 import { loadPage } from './router.js';
@@ -594,10 +594,11 @@ function renderProfiles() {
 
         console.log('renderProfiles: Total visible profiles:', visibleProfileCount);
         if (visibleProfileCount > 0 && !selectedProfileKey) {
-            console.log('renderProfiles: No profile selected, selecting first one');
-             if (container.firstChild) {
-                const firstItem = container.firstChild;
-                firstItem.dispatchEvent(new MouseEvent('click'));
+            const firstItem = container.querySelector('[data-profile-key]');
+            if (firstItem) {
+                firstItem.classList.add('bg-[#385a92]', 'text-white', 'rounded-[8px]');
+                firstItem.setAttribute('aria-selected', 'true');
+                updateSelectedProfileView(firstItem);
             }
         }
 
@@ -709,9 +710,24 @@ function initDeleteButton() {
         }
 
         console.log('initDeleteButton: Proceeding with delete/hide operation');
-        await deleteOrHideProfile(selectedProfileKey);
-
         const keyToActOn = selectedProfileKey; // Preserve key
+
+        if (keyToActOn.startsWith('kv:')) {
+            // User-created KV profile — delete from KV store
+            const kvKey = profileRecord._kvKey || keyToActOn.replace(/^kv:/, '');
+            try {
+                await deleteKVValue('streamline', kvKey);
+                delete availableProfiles[keyToActOn];
+                selectedProfileKey = null;
+                renderProfiles();
+                updateSelectedProfileView(null);
+                showToast('Profile deleted.', 2000, 'success');
+            } catch (e) {
+                showToast('Failed to delete profile.', 3000, 'error');
+            }
+            return;
+        }
+
         await deleteOrHideProfile(keyToActOn);
 
         // Re-rendering is handled by the 'profiles-updated' event.
@@ -1071,42 +1087,52 @@ export async function initializeProfileSelector() {
     await initI18n();
     console.log('initializeProfileSelector: i18n initialized');
 
-    // Delay chart initialization until the element is available in the DOM
-    // Use a small timeout to ensure DOM is fully updated
-    setTimeout(() => {
-        console.log('initializeProfileSelector: Attempting to initialize chart, checking for plotly-chart element...');
-        const chartElement = document.getElementById('plotly-chart');
-        console.log('initializeProfileSelector: Chart element found:', !!chartElement);
-
-        if (chartElement) {
-            console.log('initializeProfileSelector: Calling initChart');
-            initChart();
-        } else {
-            // If element is not available yet, try again after a short delay
-            console.log('initializeProfileSelector: Chart element not found, retrying in 200ms...');
-            setTimeout(() => {
-                const chartElementRetry = document.getElementById('plotly-chart');
-                console.log('initializeProfileSelector: Retry - Chart element found:', !!chartElementRetry);
-                if (chartElementRetry) {
-                    console.log('initializeProfileSelector: Calling initChart on retry');
-                    initChart();
-                } else {
-                    console.warn('Chart element not found after loading profile selector');
-                }
-            }, 200);
-        }
-    }, 100);
+    // Initialize chart — wait until the element is in the DOM before calling initChart
+    await new Promise((resolve) => {
+        const tryInit = (attemptsLeft) => {
+            const chartElement = document.getElementById('plotly-chart');
+            if (chartElement) {
+                initChart();
+                resolve();
+            } else if (attemptsLeft > 0) {
+                setTimeout(() => tryInit(attemptsLeft - 1), 100);
+            } else {
+                console.warn('Chart element not found after retries');
+                resolve();
+            }
+        };
+        setTimeout(() => tryInit(3), 50);
+    });
 
     const profileLoadStatus = await initProfileManager();
     console.log('initializeProfileSelector: Profile manager initialized, status:', profileLoadStatus);
 
     if (profileLoadStatus?.profilesFrom === 'API') {
-        // Profiles loaded successfully from the primary source, no toast needed for the normal case.
         logger.info('Profiles loaded successfully from API.');
     } else if (profileLoadStatus?.profilesFrom === 'IDB_CACHE') {
         showToast('Offline: Displaying cached profiles.', 3000, 'warning');
-    } else { // 'NONE'
+    } else {
         showToast('Error: Could not load any profiles.', 3000, 'error');
+    }
+
+    // Load user-created profiles from KV store and merge into availableProfiles
+    try {
+        const kvKeys = await getKVKeys('streamline');
+        if (kvKeys && kvKeys.length > 0) {
+            await Promise.all(kvKeys.map(async (key) => {
+                try {
+                    const kvRecord = await getKVValue('streamline', key);
+                    if (kvRecord && kvRecord.profile) {
+                        availableProfiles[kvRecord.id || `kv:${key}`] = kvRecord;
+                    }
+                } catch (e) {
+                    logger.warn(`Failed to load KV profile ${key}:`, e);
+                }
+            }));
+            logger.info(`Loaded ${kvKeys.length} user profile(s) from KV store.`);
+        }
+    } catch (e) {
+        logger.warn('Could not load KV profiles:', e);
     }
 
     console.log('initializeProfileSelector: Rendering profiles...');
@@ -1198,6 +1224,104 @@ export async function initializeProfileSelector() {
         };
         editTitleBtn.addEventListener('click', handleRenameProfile);
         editTitleBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRenameProfile(); } });
+    }
+
+    const editProfileBtnRaw = document.getElementById('edit_profile');
+    const editProfileBtn = editProfileBtnRaw ? (() => {
+        const clone = editProfileBtnRaw.cloneNode(true);
+        editProfileBtnRaw.parentNode.replaceChild(clone, editProfileBtnRaw);
+        return clone;
+    })() : null;
+    if (editProfileBtn) {
+        editProfileBtn.addEventListener('click', () => {
+            console.log('[EditBtn] clicked. selectedProfileKey=', selectedProfileKey);
+            if (!selectedProfileKey) {
+                showToast('Select a profile first', 3000, 'error');
+                return;
+            }
+            const profileRecord = availableProfiles[selectedProfileKey];
+            console.log('[EditBtn] profileRecord=', profileRecord);
+            if (!profileRecord) {
+                console.warn('[EditBtn] profileRecord is null/undefined, aborting');
+                return;
+            }
+            console.log('[EditBtn] Setting window.__pendingEditProfile and navigating...');
+            window.__pendingEditProfile = profileRecord;
+            console.log('[EditBtn] window.__pendingEditProfile set:', window.__pendingEditProfile?.profile?.title);
+            loadPage('src/profiles/profile_editor.html');
+        });
+    } else {
+        console.warn('[EditBtn] #edit_profile button not found in DOM');
+    }
+
+    // Wire reset button
+    const resetBtnRaw = document.getElementById('reset_btn');
+    const resetBtn = resetBtnRaw ? (() => {
+        const clone = resetBtnRaw.cloneNode(true);
+        resetBtnRaw.parentNode.replaceChild(clone, resetBtnRaw);
+        return clone;
+    })() : null;
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (!selectedProfileKey) {
+                showToast('Select a profile first', 3000, 'error');
+                return;
+            }
+            const profileRecord = availableProfiles[selectedProfileKey];
+            if (!profileRecord) return;
+
+            if (!selectedProfileKey.startsWith('kv:')) {
+                showToast('This is an original profile — nothing to reset.', 3000, 'info');
+                return;
+            }
+
+            const title = profileRecord.profile?.title || 'this profile';
+            const msgEl = document.getElementById('reset-profile-msg');
+            if (msgEl) msgEl.textContent = `"${title}" is a saved copy. Resetting will delete it and restore the original. This cannot be undone.`;
+
+            const modal = document.getElementById('reset-profile-modal');
+            if (modal) modal.showModal();
+        });
+    }
+
+    const resetCancelBtnRaw = document.getElementById('reset-profile-cancel');
+    const resetCancelBtn = resetCancelBtnRaw ? (() => {
+        const clone = resetCancelBtnRaw.cloneNode(true);
+        resetCancelBtnRaw.parentNode.replaceChild(clone, resetCancelBtnRaw);
+        return clone;
+    })() : null;
+    if (resetCancelBtn) {
+        resetCancelBtn.addEventListener('click', () => {
+            document.getElementById('reset-profile-modal')?.close();
+        });
+    }
+
+    const resetConfirmBtnRaw = document.getElementById('reset-profile-confirm');
+    const resetConfirmBtn = resetConfirmBtnRaw ? (() => {
+        const clone = resetConfirmBtnRaw.cloneNode(true);
+        resetConfirmBtnRaw.parentNode.replaceChild(clone, resetConfirmBtnRaw);
+        return clone;
+    })() : null;
+    if (resetConfirmBtn) {
+        resetConfirmBtn.addEventListener('click', async () => {
+            document.getElementById('reset-profile-modal')?.close();
+            if (!selectedProfileKey?.startsWith('kv:')) return;
+
+            const profileRecord = availableProfiles[selectedProfileKey];
+            const kvKey = profileRecord?._kvKey || selectedProfileKey.replace(/^kv:/, '');
+            const parentId = profileRecord?.parentId || null;
+
+            try {
+                await deleteKVValue('streamline', kvKey);
+                delete availableProfiles[selectedProfileKey];
+                selectedProfileKey = parentId && availableProfiles[parentId] ? parentId : null;
+                renderProfiles();
+                updateSelectedProfileView(selectedProfileKey ? availableProfiles[selectedProfileKey] : null);
+                showToast('Profile reset to original.', 2500, 'success');
+            } catch (e) {
+                showToast('Failed to reset profile.', 3000, 'error');
+            }
+        });
     }
 
     console.log('initializeProfileSelector: Initialization complete');
