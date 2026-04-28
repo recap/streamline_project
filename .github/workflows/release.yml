@@ -48,12 +48,24 @@ jobs:
           echo "Synced manifest version to: $version"
           cat dist/skin-manifest.json
 
+
+      # On main pushes (dist branch deploys), suffix the id so the dist build
+      # installs alongside the released skin instead of clobbering it.
+      - name: Set dist manifest id
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          jq '.id = "streamline.js-dist"' dist/skin-manifest.json > dist/skin-manifest.json.tmp
+          mv dist/skin-manifest.json.tmp dist/skin-manifest.json
+          cat dist/skin-manifest.json
+
       - name: Validate skin-manifest.json
         run: |
           set -euo pipefail
           test -f dist/skin-manifest.json
-          jq -e '.id == "streamline.js"' dist/skin-manifest.json > /dev/null
+          jq -e '.id == "streamline.js" or .id == "streamline.js-dist"' dist/skin-manifest.json > /dev/null
           jq -e '.version' dist/skin-manifest.json > /dev/null
+
 
       - name: Reject filenames with Win32 reserved chars
         run: |
