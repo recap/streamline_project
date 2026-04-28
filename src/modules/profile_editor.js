@@ -54,20 +54,20 @@ function createSpinner(initialValue, step, unit, onChange, opts = {}) {
     let debounceTimer = null;
 
     const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-center gap-[20px]';
+    wrapper.className = 'flex items-center gap-[10px]';
 
     const minusBtn = document.createElement('button');
     minusBtn.type = 'button';
-    minusBtn.className = 'bg-[#ededed] rounded-[20px] w-[72px] h-[72px] flex items-center justify-center cursor-pointer select-none text-2xl font-bold text-[var(--text-primary)]';
+    minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
     minusBtn.textContent = '\u2212';
     minusBtn.setAttribute('aria-label', 'Decrease');
 
     const display = document.createElement('span');
-    display.className = 'font-bold text-[28px] text-center w-[120px] text-[var(--text-primary)]';
+    display.className = 'font-bold text-[20px] text-center w-[90px] text-[var(--text-primary)]';
 
     const plusBtn = document.createElement('button');
     plusBtn.type = 'button';
-    plusBtn.className = 'bg-[#ededed] rounded-[20px] w-[72px] h-[72px] flex items-center justify-center cursor-pointer select-none text-2xl font-bold text-[var(--text-primary)]';
+    plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
     plusBtn.textContent = '+';
     plusBtn.setAttribute('aria-label', 'Increase');
 
@@ -121,9 +121,9 @@ function createToggle(options, activeValue, onChange) {
     function render() {
         buttons.forEach(({ btn, value }) => {
             if (value === currentValue) {
-                btn.className = 'bg-[var(--mimoja-blue)] text-white rounded-[10px] px-4 py-2 text-[20px] font-semibold cursor-pointer transition-colors';
+                btn.className = 'bg-[var(--mimoja-blue)] text-white rounded-[8px] px-[10px] py-[6px] text-[16px] font-semibold cursor-pointer transition-colors';
             } else {
-                btn.className = 'bg-[#ededed] text-gray-600 rounded-[10px] px-4 py-2 text-[20px] font-semibold cursor-pointer transition-colors';
+                btn.className = 'bg-[#ededed] text-gray-600 rounded-[8px] px-[10px] py-[6px] text-[16px] font-semibold cursor-pointer transition-colors';
             }
         });
     }
@@ -147,194 +147,6 @@ function createToggle(options, activeValue, onChange) {
     return wrapper;
 }
 
-// ─── Step Card Builder ──────────────────────────────────────────────────────
-
-function buildStepCard(step, index) {
-    const card = document.createElement('div');
-    card.className = 'flex-shrink-0 border-r border-base-300 p-[30px] overflow-y-auto';
-    card.style.width = 'calc(100% / 4)';
-    card.style.minWidth = 'calc(100% / 4)';
-    card.dataset.stepIndex = index;
-
-    // Step number + editable name
-    const header = document.createElement('div');
-    header.className = 'flex items-center gap-[12px] mb-[24px]';
-
-    const stepNum = document.createElement('span');
-    stepNum.className = 'text-[28px] font-bold text-[var(--text-primary)]';
-    stepNum.textContent = `${index + 1}.`;
-
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.value = step.name || '';
-    nameInput.className = 'text-[28px] font-bold text-[var(--text-primary)] bg-transparent border-b border-gray-300 outline-none focus:border-[var(--mimoja-blue)] flex-1';
-    nameInput.addEventListener('change', () => {
-        editorState.profile.steps[index].name = nameInput.value;
-    });
-
-    header.appendChild(stepNum);
-    header.appendChild(nameInput);
-    card.appendChild(header);
-
-    // Helper to add a labeled row
-    function addRow(labelText, element) {
-        const row = document.createElement('div');
-        row.className = 'mb-[20px]';
-        const label = document.createElement('div');
-        label.className = 'text-[20px] text-gray-500 mb-[8px]';
-        label.textContent = labelText;
-        row.appendChild(label);
-        row.appendChild(element);
-        card.appendChild(row);
-    }
-
-    // Temperature spinner
-    addRow('Temperature', createSpinner(step.temperature || 93, 0.5, '\u00b0c', (val) => {
-        editorState.profile.steps[index].temperature = val;
-    }, { min: 0, max: 110 }));
-
-    // Pump toggle
-    const pumpToggle = createToggle(
-        [{ label: 'FLOW', value: 'flow' }, { label: 'PRESSURE', value: 'pressure' }],
-        step.pump || 'flow',
-        (val) => {
-            editorState.profile.steps[index].pump = val;
-            // Re-render this card to show/hide pump-specific fields
-            renderStepCards();
-        }
-    );
-    addRow('Pump', pumpToggle);
-
-    // Transition toggle
-    addRow('Transition', createToggle(
-        [{ label: 'FAST', value: 'fast' }, { label: 'SMOOTH', value: 'smooth' }],
-        step.transition || 'fast',
-        (val) => { editorState.profile.steps[index].transition = val; }
-    ));
-
-    if (step.pump === 'flow') {
-        // Flow rate
-        addRow('Rate (ml/s)', createSpinner(step.flow || 0, 0.1, 'ml/s', (val) => {
-            editorState.profile.steps[index].flow = val;
-        }, { min: 0, max: 15 }));
-
-        // Pressure limiter
-        addRow('Limiter (pressure bar)', createSpinner(
-            step.limiter ? step.limiter.value : 0, 0.1, 'bar', (val) => {
-                if (!editorState.profile.steps[index].limiter) {
-                    editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
-                } else {
-                    editorState.profile.steps[index].limiter.value = val;
-                }
-            }, { min: 0, max: 16 }
-        ));
-    } else {
-        // Pressure
-        addRow('Pressure (bar)', createSpinner(step.pressure || 0, 0.1, 'bar', (val) => {
-            editorState.profile.steps[index].pressure = val;
-        }, { min: 0, max: 16 }));
-
-        // Flow limiter
-        addRow('Limiter (flow ml/s)', createSpinner(
-            step.limiter ? step.limiter.value : 0, 0.1, 'ml/s', (val) => {
-                if (!editorState.profile.steps[index].limiter) {
-                    editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
-                } else {
-                    editorState.profile.steps[index].limiter.value = val;
-                }
-            }, { min: 0, max: 15 }
-        ));
-    }
-
-    // Exit conditions
-    addRow('Exit after (seconds)', createSpinner(step.seconds || 0, 1, 'sec', (val) => {
-        editorState.profile.steps[index].seconds = val;
-    }, { min: 0, max: 300 }));
-
-    addRow('Exit after (weight)', createSpinner(step.weight || 0, 1, 'g', (val) => {
-        editorState.profile.steps[index].weight = val;
-    }, { min: 0, max: 500 }));
-
-    addRow('Exit after (volume)', createSpinner(step.volume || 0, 1, 'ml', (val) => {
-        editorState.profile.steps[index].volume = val;
-    }, { min: 0, max: 500 }));
-
-    // Max pressure limiter exit condition (only if pump=flow)
-    if (step.pump === 'flow' && step.exit) {
-        addRow('Max pressure limiter condition', createToggle(
-            [{ label: 'IS UNDER', value: 'under' }, { label: 'IS OVER', value: 'over' }],
-            step.exit.condition || 'over',
-            (val) => {
-                if (!editorState.profile.steps[index].exit) {
-                    editorState.profile.steps[index].exit = { type: 'pressure', condition: val, value: 9.0 };
-                } else {
-                    editorState.profile.steps[index].exit.condition = val;
-                }
-            }
-        ));
-
-        addRow('Max pressure limiter (bar)', createSpinner(
-            step.exit.value || 0, 0.1, 'bar', (val) => {
-                if (!editorState.profile.steps[index].exit) {
-                    editorState.profile.steps[index].exit = { type: 'pressure', condition: 'over', value: val };
-                } else {
-                    editorState.profile.steps[index].exit.value = val;
-                }
-            }, { min: 0, max: 16 }
-        ));
-    }
-
-    // Footer: delete + insert buttons
-    const footer = document.createElement('div');
-    footer.className = 'flex justify-between items-center mt-[24px] pt-[16px] border-t border-gray-200';
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'w-[52px] h-[52px] flex items-center justify-center text-red-500 hover:bg-red-50 rounded-[12px] cursor-pointer';
-    deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
-    deleteBtn.setAttribute('aria-label', 'Delete step');
-    deleteBtn.addEventListener('click', () => {
-        editorState.profile.steps.splice(index, 1);
-        renderStepCards();
-    });
-
-    const insertBtn = document.createElement('button');
-    insertBtn.type = 'button';
-    insertBtn.className = 'w-[52px] h-[52px] flex items-center justify-center text-[var(--mimoja-blue)] hover:bg-blue-50 rounded-[12px] cursor-pointer';
-    insertBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
-    insertBtn.setAttribute('aria-label', 'Insert step after');
-    insertBtn.addEventListener('click', () => {
-        editorState.profile.steps.splice(index + 1, 0, deepCopy(DEFAULT_STEP));
-        renderStepCards();
-    });
-
-    footer.appendChild(deleteBtn);
-    footer.appendChild(insertBtn);
-    card.appendChild(footer);
-
-    return card;
-}
-
-function buildAddStepCard() {
-    const card = document.createElement('div');
-    card.className = 'flex-shrink-0 flex items-center justify-center';
-    card.style.width = 'calc(100% / 4)';
-    card.style.minWidth = 'calc(100% / 4)';
-
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'w-[120px] h-[120px] bg-[#ededed] rounded-[30px] flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors';
-    addBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-[var(--mimoja-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
-    addBtn.setAttribute('aria-label', 'Add new step');
-    addBtn.addEventListener('click', () => {
-        editorState.profile.steps.push(deepCopy(DEFAULT_STEP));
-        renderStepCards();
-    });
-
-    card.appendChild(addBtn);
-    return card;
-}
-
 // ─── Render Functions ───────────────────────────────────────────────────────
 
 function renderStepCards() {
@@ -343,10 +155,203 @@ function renderStepCards() {
     container.innerHTML = '';
 
     const steps = editorState.profile.steps || [];
-    steps.forEach((step, i) => {
-        container.appendChild(buildStepCard(step, i));
+    const numSteps = steps.length;
+
+    // CSS grid: label col + step cols (4 visible at once, extras scroll) + add-step col
+    // 380px per step = (1920 - 220 label - 180 add) / 4; minmax keeps 4 visible, min enforces scroll beyond 4
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = `220px repeat(${numSteps}, minmax(380px, 1fr)) 180px`;
+    container.style.gridTemplateRows = `repeat(${12}, 1fr)`;
+    container.style.height = '100%';
+    container.style.width = '100%';
+
+    const R = { HEADER: 1, TEMP: 2, PUMP: 3, TRANS: 4, TARGET: 5, LIMITER: 6, SECONDS: 7, WEIGHT: 8, VOLUME: 9, EXIT_COND: 10, EXIT_VAL: 11, FOOTER: 12 };
+    const TOTAL_ROWS = 12;
+
+    // Helper: create a grid cell, append to container
+    function mkCell(row, col, className) {
+        const el = document.createElement('div');
+        el.style.gridRow = row;
+        el.style.gridColumn = col;
+        el.className = className;
+        container.appendChild(el);
+        return el;
+    }
+
+    // ── Label column (sticky left) ────────────────────────────────────────────
+    const labelBase = 'flex items-center px-[20px] py-[8px] border-r-2 border-b border-[#e8e8e8] bg-[var(--box-color)]';
+
+    function mkLabel(row, text) {
+        const el = mkCell(row, 1, labelBase);
+        el.style.position = 'sticky';
+        el.style.left = '0';
+        el.style.zIndex = '2';
+        if (text) {
+            const span = document.createElement('span');
+            span.className = 'text-[17px] font-semibold text-gray-500 leading-tight';
+            span.textContent = text;
+            el.appendChild(span);
+        }
+        return el;
+    }
+
+    mkLabel(R.HEADER,   '');
+    mkLabel(R.TEMP,     'Temperature');
+    mkLabel(R.PUMP,     'Pump');
+    mkLabel(R.TRANS,    'Transition');
+    mkLabel(R.TARGET,   'Target');
+    mkLabel(R.LIMITER,  'Limiter');
+    mkLabel(R.SECONDS,  'Exit: Seconds');
+    mkLabel(R.WEIGHT,   'Exit: Weight');
+    mkLabel(R.VOLUME,   'Exit: Volume');
+    mkLabel(R.EXIT_COND,'Exit: Condition');
+    mkLabel(R.EXIT_VAL, 'Exit: Max Bar');
+    mkLabel(R.FOOTER,   '');
+
+    // ── Step columns ──────────────────────────────────────────────────────────
+    const stepCell = 'flex items-center justify-center px-[16px] py-[8px] border-r border-b border-[#e8e8e8]';
+
+    steps.forEach((step, index) => {
+        const col = index + 2;
+        const isFlow = step.pump !== 'pressure';
+
+        // Header: step number + name input
+        const hCell = mkCell(R.HEADER, col, 'flex items-center justify-center gap-[10px] px-[16px] py-[10px] border-r border-b-2 border-[#e8e8e8] bg-white');
+        const numSpan = document.createElement('span');
+        numSpan.className = 'text-[20px] font-bold text-[var(--text-primary)] shrink-0';
+        numSpan.textContent = `${index + 1}.`;
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = step.name || '';
+        nameInput.className = 'text-[20px] font-bold text-[var(--text-primary)] bg-transparent border-b border-gray-300 outline-none focus:border-[var(--mimoja-blue)] flex-1 min-w-0';
+        nameInput.addEventListener('change', () => { editorState.profile.steps[index].name = nameInput.value; });
+        hCell.appendChild(numSpan);
+        hCell.appendChild(nameInput);
+
+        // Temperature
+        const tCell = mkCell(R.TEMP, col, stepCell);
+        tCell.appendChild(createSpinner(step.temperature || 93, 0.5, '\u00b0c', (val) => {
+            editorState.profile.steps[index].temperature = val;
+        }, { min: 0, max: 110 }));
+
+        // Pump
+        const pCell = mkCell(R.PUMP, col, stepCell);
+        pCell.appendChild(createToggle(
+            [{ label: 'FLOW', value: 'flow' }, { label: 'PRESSURE', value: 'pressure' }],
+            step.pump || 'flow',
+            (val) => { editorState.profile.steps[index].pump = val; renderStepCards(); }
+        ));
+
+        // Transition
+        const trCell = mkCell(R.TRANS, col, stepCell);
+        trCell.appendChild(createToggle(
+            [{ label: 'FAST', value: 'fast' }, { label: 'SMOOTH', value: 'smooth' }],
+            step.transition || 'fast',
+            (val) => { editorState.profile.steps[index].transition = val; }
+        ));
+
+        // Target (flow rate or pressure)
+        const targetCell = mkCell(R.TARGET, col, stepCell);
+        if (isFlow) {
+            targetCell.appendChild(createSpinner(step.flow || 0, 0.1, 'ml/s', (val) => {
+                editorState.profile.steps[index].flow = val;
+            }, { min: 0, max: 15 }));
+        } else {
+            targetCell.appendChild(createSpinner(step.pressure || 0, 0.1, 'bar', (val) => {
+                editorState.profile.steps[index].pressure = val;
+            }, { min: 0, max: 16 }));
+        }
+
+        // Limiter (unit flips with pump mode)
+        const limCell = mkCell(R.LIMITER, col, stepCell);
+        if (isFlow) {
+            limCell.appendChild(createSpinner(step.limiter?.value ?? 0, 0.1, 'bar', (val) => {
+                if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
+                else editorState.profile.steps[index].limiter.value = val;
+            }, { min: 0, max: 16 }));
+        } else {
+            limCell.appendChild(createSpinner(step.limiter?.value ?? 0, 0.1, 'ml/s', (val) => {
+                if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
+                else editorState.profile.steps[index].limiter.value = val;
+            }, { min: 0, max: 15 }));
+        }
+
+        // Exit: Seconds
+        const secCell = mkCell(R.SECONDS, col, stepCell);
+        secCell.appendChild(createSpinner(step.seconds || 0, 1, 'sec', (val) => {
+            editorState.profile.steps[index].seconds = val;
+        }, { min: 0, max: 300 }));
+
+        // Exit: Weight
+        const wCell = mkCell(R.WEIGHT, col, stepCell);
+        wCell.appendChild(createSpinner(step.weight || 0, 1, 'g', (val) => {
+            editorState.profile.steps[index].weight = val;
+        }, { min: 0, max: 500 }));
+
+        // Exit: Volume
+        const vCell = mkCell(R.VOLUME, col, stepCell);
+        vCell.appendChild(createSpinner(step.volume || 0, 1, 'ml', (val) => {
+            editorState.profile.steps[index].volume = val;
+        }, { min: 0, max: 500 }));
+
+        // Exit condition (flow only; empty cell for pressure steps)
+        const condCell = mkCell(R.EXIT_COND, col, stepCell);
+        if (isFlow && step.exit) {
+            condCell.appendChild(createToggle(
+                [{ label: 'IS UNDER', value: 'under' }, { label: 'IS OVER', value: 'over' }],
+                step.exit.condition || 'over',
+                (val) => {
+                    if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: 'pressure', condition: val, value: 9.0 };
+                    else editorState.profile.steps[index].exit.condition = val;
+                }
+            ));
+        }
+
+        // Exit value (flow only; empty cell for pressure steps)
+        const exitValCell = mkCell(R.EXIT_VAL, col, stepCell);
+        if (isFlow && step.exit) {
+            exitValCell.appendChild(createSpinner(step.exit.value ?? 0, 0.1, 'bar', (val) => {
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: 'pressure', condition: 'over', value: val };
+                else editorState.profile.steps[index].exit.value = val;
+            }, { min: 0, max: 16 }));
+        }
+
+        // Footer: delete + insert
+        const fCell = mkCell(R.FOOTER, col, 'flex justify-center items-center gap-[40px] px-[16px] py-[8px] border-r border-[#e8e8e8]');
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'w-[40px] h-[40px] flex items-center justify-center text-red-500 hover:bg-red-50 rounded-[10px] cursor-pointer';
+        deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
+        deleteBtn.setAttribute('aria-label', 'Delete step');
+        deleteBtn.addEventListener('click', () => { editorState.profile.steps.splice(index, 1); renderStepCards(); });
+
+        const insertBtn = document.createElement('button');
+        insertBtn.type = 'button';
+        insertBtn.className = 'w-[40px] h-[40px] flex items-center justify-center text-[var(--mimoja-blue)] hover:bg-blue-50 rounded-[10px] cursor-pointer';
+        insertBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
+        insertBtn.setAttribute('aria-label', 'Insert step after');
+        insertBtn.addEventListener('click', () => { editorState.profile.steps.splice(index + 1, 0, deepCopy(DEFAULT_STEP)); renderStepCards(); });
+
+        fCell.appendChild(deleteBtn);
+        fCell.appendChild(insertBtn);
     });
-    container.appendChild(buildAddStepCard());
+
+    // ── Add Step column (spans all rows) ─────────────────────────────────────
+    const addCell = document.createElement('div');
+    addCell.style.gridRow = `1 / ${TOTAL_ROWS + 1}`;
+    addCell.style.gridColumn = numSteps + 2;
+    addCell.className = 'flex items-center justify-center';
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'w-[120px] h-[120px] bg-[#ededed] rounded-[30px] flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors';
+    addBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-[var(--mimoja-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
+    addBtn.setAttribute('aria-label', 'Add new step');
+    addBtn.addEventListener('click', () => { editorState.profile.steps.push(deepCopy(DEFAULT_STEP)); renderStepCards(); });
+
+    addCell.appendChild(addBtn);
+    container.appendChild(addCell);
 }
 
 function renderSettingsTab() {
@@ -365,6 +370,7 @@ function renderSettingsTab() {
         wrapper.appendChild(label);
         wrapper.appendChild(element);
         container.appendChild(wrapper);
+        return wrapper;
     }
 
     // Target Weight
@@ -383,11 +389,11 @@ function renderSettingsTab() {
     ));
 
     // Volume Count Start
-    addSettingsField('Volume Count Start', createSpinner(
+    addSettingsField('Volume Count Start at Step', createSpinner(
         profile.target_volume_count_start || 0, 1, '', (val) => { editorState.profile.target_volume_count_start = val; }, { min: 0, max: 10 }
     ));
 
-    // Author (text input)
+    // Author (text input) — col 1
     const authorInput = document.createElement('input');
     authorInput.type = 'text';
     authorInput.value = profile.author || '';
@@ -395,15 +401,7 @@ function renderSettingsTab() {
     authorInput.addEventListener('change', () => { editorState.profile.author = authorInput.value; });
     addSettingsField('Author', authorInput);
 
-    // Notes (textarea)
-    const notesArea = document.createElement('textarea');
-    notesArea.rows = 3;
-    notesArea.value = profile.notes || '';
-    notesArea.className = 'text-[22px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full resize-none';
-    notesArea.addEventListener('change', () => { editorState.profile.notes = notesArea.value; });
-    addSettingsField('Notes', notesArea);
-
-    // Beverage Type (select)
+    // Beverage Type (select) — col 2, same row as Author
     const select = document.createElement('select');
     select.className = 'text-[24px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full';
     ['espresso', 'manual', 'cleaning'].forEach((type) => {
@@ -415,6 +413,15 @@ function renderSettingsTab() {
     });
     select.addEventListener('change', () => { editorState.profile.beverage_type = select.value; });
     addSettingsField('Beverage Type', select);
+
+    // Notes (textarea) — spans both columns, grows to fill remaining space
+    const notesArea = document.createElement('textarea');
+    notesArea.value = profile.notes || '';
+    notesArea.className = 'text-[22px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full resize-none min-h-[200px]';
+    notesArea.style.flex = '1';
+    notesArea.addEventListener('change', () => { editorState.profile.notes = notesArea.value; });
+    const notesWrapper = addSettingsField('Notes', notesArea);
+    notesWrapper.className = 'flex flex-col gap-[12px] col-span-2';
 }
 
 // ─── Review Tab ─────────────────────────────────────────────────────────────
@@ -465,15 +472,15 @@ function renderReviewTab() {
         stepsList.innerHTML = '';
         (profile.steps || []).forEach((step, i) => {
             const row = document.createElement('div');
-            row.className = 'flex gap-[20px] items-start text-[#121212]';
+            row.className = 'flex gap-[16px] items-start text-[#121212]';
 
             const nameEl = document.createElement('p');
-            nameEl.className = 'font-semibold text-[32px] w-[260px] shrink-0 leading-[1.3]';
+            nameEl.className = 'font-semibold text-[20px] w-[160px] shrink-0 leading-[1.3]';
             nameEl.textContent = `${i + 1}: ${step.name || 'Step'}`;
             row.appendChild(nameEl);
 
             const bulletCol = document.createElement('ul');
-            bulletCol.className = 'flex flex-col gap-[18px] list-disc list-inside text-[32px]';
+            bulletCol.className = 'flex flex-col gap-[8px] list-disc list-inside text-[20px]';
             for (const line of describeStep(step, i)) {
                 const li = document.createElement('li');
                 li.innerHTML = line;
@@ -570,9 +577,9 @@ function setActiveTab(tabIndex) {
     document.querySelectorAll('.editor-tab-btn').forEach((btn) => {
         const idx = parseInt(btn.dataset.tab, 10);
         if (idx === tabIndex) {
-            btn.className = 'editor-tab-btn font-bold px-[40px] h-[80px] rounded-[60px] transition-colors text-[24px] tracking-wide bg-[#385a92] text-white';
+            btn.className = 'editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide bg-[#385a92] text-white';
         } else {
-            btn.className = 'editor-tab-btn font-bold px-[40px] h-[80px] rounded-[60px] transition-colors text-[24px] tracking-wide text-[#5f7ba8] bg-transparent';
+            btn.className = 'editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide text-[#5f7ba8] bg-transparent';
         }
     });
 
