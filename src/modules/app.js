@@ -115,6 +115,7 @@ let isDe1Connected = false;
 let isNonGhcMachine = false;
 let isScaleConnected = false; // New variable to track Scale connection status
 let previousState = {}; // Track previous machine state object {state, substate}
+let currentActiveProfile = null; // Track active profile for shot-end reason detection
 
 let latestScaleWeight = 0;
 let heatingStartTime = null;
@@ -332,6 +333,24 @@ function handleData(data) {
     // Check for shot completion (transition from 'espresso' to 'ready' or 'idle')
     if (previousState.state === MachineState.ESPRESSO && (state === MachineState.READY || state === MachineState.IDLE)) {
         logger.info('Shot finished. Checking for upload confirmation and refreshing history.');
+
+        // Show stop-reason toast
+        const finishedShot = shotData.getCurrentShot();
+        const finalWeight = finishedShot.weights?.at(-1) ?? latestScaleWeight;
+        const finalVolume = finishedShot.volumes?.at(-1) ?? 0;
+        const targetWeight = parseFloat(currentActiveProfile?.target_weight ?? 0);
+        const targetVolume = parseFloat(currentActiveProfile?.target_volume ?? 0);
+
+        let stopReason;
+        if (targetWeight > 0 && finalWeight !== null && finalWeight >= targetWeight * 0.93) {
+            stopReason = `Weight target reached: ${finalWeight.toFixed(1)}g`;
+        } else if (targetVolume > 0 && finalVolume >= targetVolume * 0.93) {
+            stopReason = `Volume target reached: ${Math.round(finalVolume)}ml`;
+        } else {
+            const elapsedS = shotStartTime ? Math.round((Date.now() - shotStartTime.getTime()) / 1000) : 0;
+            stopReason = `Shot complete: ${elapsedS}s`;
+        }
+        ui.showToast(stopReason, 6000, 'info');
 
         // Start polling for upload confirmation
         setTimeout(async () => {
@@ -596,7 +615,8 @@ async function loadInitialData() {
         if (profile) {
             ui.updateProfileName(profile.title || "Untitled Profile");
             logger.info(`Active profile: ${profile.title}`);
-            
+            currentActiveProfile = profile;
+
             // Set the current profile in the chart module for step change detection
             chart.setCurrentProfile(profile);
             logger.info('Profile set in chart module for step change detection');

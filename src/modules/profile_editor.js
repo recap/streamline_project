@@ -223,7 +223,7 @@ function renderStepCards() {
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.value = step.name || '';
-        nameInput.className = 'text-[20px] font-bold text-[var(--text-primary)] bg-transparent border-b border-gray-300 outline-none focus:border-[var(--mimoja-blue)] flex-1 min-w-0';
+        nameInput.className = 'text-[20px] font-bold text-[var(--text-primary)] bg-transparent border-b border-gray-300 outline-none focus:border-[var(--mimoja-blue)] w-[200px]';
         nameInput.addEventListener('change', () => { editorState.profile.steps[index].name = nameInput.value; });
         hCell.appendChild(numSpan);
         hCell.appendChild(nameInput);
