@@ -161,12 +161,12 @@ function renderStepCards() {
     // 380px per step = (1920 - 220 label - 180 add) / 4; minmax keeps 4 visible, min enforces scroll beyond 4
     container.style.display = 'grid';
     container.style.gridTemplateColumns = `220px repeat(${numSteps}, minmax(380px, 1fr)) 180px`;
-    container.style.gridTemplateRows = `repeat(${12}, 1fr)`;
+    container.style.gridTemplateRows = `repeat(${14}, 1fr)`;
     container.style.height = '100%';
     container.style.width = '100%';
 
-    const R = { HEADER: 1, TEMP: 2, PUMP: 3, TRANS: 4, TARGET: 5, LIMITER: 6, SECONDS: 7, WEIGHT: 8, VOLUME: 9, EXIT_COND: 10, EXIT_VAL: 11, FOOTER: 12 };
-    const TOTAL_ROWS = 12;
+    const R = { HEADER: 1, TEMP: 2, PUMP: 3, SENSOR: 4, TRANS: 5, TARGET: 6, LIMITER: 7, SECONDS: 8, WEIGHT: 9, VOLUME: 10, EXIT_TYPE: 11, EXIT_COND: 12, EXIT_VAL: 13, FOOTER: 14 };
+    const TOTAL_ROWS = 14;
 
     // Helper: create a grid cell, append to container
     function mkCell(row, col, className) {
@@ -181,7 +181,7 @@ function renderStepCards() {
     // ── Label column (sticky left) ────────────────────────────────────────────
     const labelBase = 'flex items-center px-[20px] py-[8px] border-r-2 border-b border-[#e8e8e8] bg-[var(--box-color)]';
 
-    function mkLabel(row, text) {
+    function mkLabel(row, text, tip = '') {
         const el = mkCell(row, 1, labelBase);
         el.style.position = 'sticky';
         el.style.left = '0';
@@ -192,21 +192,30 @@ function renderStepCards() {
             span.textContent = text;
             el.appendChild(span);
         }
+        if (tip) {
+            const tipWrapper = document.createElement('div');
+            tipWrapper.className = 'tooltip tooltip-right ml-[6px]';
+            tipWrapper.setAttribute('data-tip', tip);
+            tipWrapper.innerHTML = `<button type="button" class="w-[18px] h-[18px] rounded-full bg-gray-200 text-gray-500 text-[11px] font-bold flex items-center justify-center shrink-0 focus:outline-none" tabindex="-1" aria-label="Help">i</button>`;
+            el.appendChild(tipWrapper);
+        }
         return el;
     }
 
-    mkLabel(R.HEADER,   '');
-    mkLabel(R.TEMP,     'Temperature');
-    mkLabel(R.PUMP,     'Pump');
-    mkLabel(R.TRANS,    'Transition');
-    mkLabel(R.TARGET,   'Target');
-    mkLabel(R.LIMITER,  'Limiter');
-    mkLabel(R.SECONDS,  'Exit: Seconds');
-    mkLabel(R.WEIGHT,   'Exit: Weight');
-    mkLabel(R.VOLUME,   'Exit: Volume');
-    mkLabel(R.EXIT_COND,'Exit: Condition');
-    mkLabel(R.EXIT_VAL, 'Exit: Max Bar');
-    mkLabel(R.FOOTER,   '');
+    mkLabel(R.HEADER,    '');
+    mkLabel(R.TEMP,      'Temperature', 'Target temperature at the group head for this step (°C)');
+    mkLabel(R.PUMP,      'Pump',        'Flow: targets a constant flow rate (ml/s). Pressure: targets a constant pressure (bar)');
+    mkLabel(R.SENSOR,    'Sensor',      'Which thermometer drives temperature control. Coffee = group head; Water = boiler');
+    mkLabel(R.TRANS,     'Transition',  'Fast: jumps immediately to the target value. Smooth: ramps gradually from the previous step\'s value');
+    mkLabel(R.TARGET,    'Target',      'The pump target value — ml/s in Flow mode, bar in Pressure mode');
+    mkLabel(R.LIMITER,   'Limiter',     'Safety cap on the opposing axis — max pressure (bar) in Flow mode, max flow rate (ml/s) in Pressure mode');
+    mkLabel(R.SECONDS,   'Exit: Seconds',   'Maximum step duration. Machine advances to the next step when this time is reached');
+    mkLabel(R.WEIGHT,    'Exit: Weight',    'Advance to next step when scale reads this weight (g). Set to 0 to disable');
+    mkLabel(R.VOLUME,    'Exit: Volume',    'Advance to next step when dispensed volume reaches this value (ml). Set to 0 to disable');
+    mkLabel(R.EXIT_TYPE, 'Exit: Type',      'Which sensor triggers the exit — Pressure (bar), Flow (ml/s), Weight (g), or Time (sec)');
+    mkLabel(R.EXIT_COND, 'Exit: Condition', 'IS OVER fires when value exceeds the threshold; IS UNDER fires when it drops below');
+    mkLabel(R.EXIT_VAL,  'Exit: Value',     'The threshold value for the exit condition. Unit matches the Exit Type selected');
+    mkLabel(R.FOOTER,    '');
 
     // ── Step columns ──────────────────────────────────────────────────────────
     const stepCell = 'flex items-center justify-center px-[16px] py-[8px] border-r border-b border-[#e8e8e8]';
@@ -248,6 +257,14 @@ function renderStepCards() {
             [{ label: 'FAST', value: 'fast' }, { label: 'SMOOTH', value: 'smooth' }],
             step.transition || 'fast',
             (val) => { editorState.profile.steps[index].transition = val; }
+        ));
+
+        // Sensor
+        const sensorCell = mkCell(R.SENSOR, col, stepCell);
+        sensorCell.appendChild(createToggle(
+            [{ label: 'COFFEE', value: 'coffee' }, { label: 'WATER', value: 'water' }],
+            step.sensor || 'coffee',
+            (val) => { editorState.profile.steps[index].sensor = val; }
         ));
 
         // Target (flow rate or pressure)
@@ -294,27 +311,51 @@ function renderStepCards() {
             editorState.profile.steps[index].volume = val;
         }, { min: 0, max: 500 }));
 
-        // Exit condition (flow only; empty cell for pressure steps)
-        const condCell = mkCell(R.EXIT_COND, col, stepCell);
-        if (isFlow && step.exit) {
-            condCell.appendChild(createToggle(
-                [{ label: 'IS UNDER', value: 'under' }, { label: 'IS OVER', value: 'over' }],
-                step.exit.condition || 'over',
-                (val) => {
-                    if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: 'pressure', condition: val, value: 9.0 };
-                    else editorState.profile.steps[index].exit.condition = val;
-                }
-            ));
-        }
+        // Exit type
+        const exitDef = step.exit || { type: 'pressure', condition: 'over', value: 0 };
+        const exitTypeCell = mkCell(R.EXIT_TYPE, col, stepCell);
+        exitTypeCell.appendChild(createToggle(
+            [
+                { label: 'PRESSURE', value: 'pressure' },
+                { label: 'FLOW',     value: 'flow' },
+                { label: 'WEIGHT',   value: 'weight' },
+                { label: 'TIME',     value: 'time' },
+            ],
+            exitDef.type || 'pressure',
+            (val) => {
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: val, condition: 'over', value: 0 };
+                else editorState.profile.steps[index].exit.type = val;
+                renderStepCards();
+            }
+        ));
 
-        // Exit value (flow only; empty cell for pressure steps)
+        // Exit condition
+        const condCell = mkCell(R.EXIT_COND, col, stepCell);
+        condCell.appendChild(createToggle(
+            [{ label: 'IS UNDER', value: 'under' }, { label: 'IS OVER', value: 'over' }],
+            exitDef.condition || 'over',
+            (val) => {
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: 'pressure', condition: val, value: 0 };
+                else editorState.profile.steps[index].exit.condition = val;
+            }
+        ));
+
+        // Exit value — unit and max adapt to exit type
+        const EXIT_UNIT_MAP = { pressure: 'bar', flow: 'ml/s', weight: 'g', time: 'sec' };
+        const EXIT_STEP_MAP = { pressure: 0.1, flow: 0.1, weight: 0.5, time: 1 };
+        const EXIT_MAX_MAP  = { pressure: 16,  flow: 15,   weight: 500, time: 300 };
+        const exitType = exitDef.type || 'pressure';
         const exitValCell = mkCell(R.EXIT_VAL, col, stepCell);
-        if (isFlow && step.exit) {
-            exitValCell.appendChild(createSpinner(step.exit.value ?? 0, 0.1, 'bar', (val) => {
-                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: 'pressure', condition: 'over', value: val };
+        exitValCell.appendChild(createSpinner(
+            exitDef.value ?? 0,
+            EXIT_STEP_MAP[exitType] ?? 0.1,
+            EXIT_UNIT_MAP[exitType] ?? 'bar',
+            (val) => {
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: 'over', value: val };
                 else editorState.profile.steps[index].exit.value = val;
-            }, { min: 0, max: 16 }));
-        }
+            },
+            { min: 0, max: EXIT_MAX_MAP[exitType] ?? 16 }
+        ));
 
         // Footer: delete + insert
         const fCell = mkCell(R.FOOTER, col, 'flex justify-center items-center gap-[40px] px-[16px] py-[8px] border-r border-[#e8e8e8]');
@@ -663,6 +704,15 @@ async function saveProfile() {
             const titleDisplay = document.getElementById('editor-title-display');
             if (titleDisplay) titleDisplay.textContent = finalTitle;
         }
+
+        // Ensure required Kletsky v2 top-level fields are present
+        editorState.profile.version = editorState.profile.version || '2';
+        editorState.profile.type = editorState.profile.type || 'advanced';
+        editorState.profile.legacy_profile_type = editorState.profile.legacy_profile_type || 'settings_2c';
+        editorState.profile.lang = editorState.profile.lang || 'en';
+        if (editorState.profile.hidden === undefined) editorState.profile.hidden = '0';
+        if (editorState.profile.reference_file === undefined) editorState.profile.reference_file = '';
+        if (editorState.profile.changes_since_last_espresso === undefined) editorState.profile.changes_since_last_espresso = '';
 
         const kvKey = crypto.randomUUID();
         const now = new Date().toISOString();
