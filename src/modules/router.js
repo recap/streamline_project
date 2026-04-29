@@ -372,8 +372,10 @@ export async function loadPage(pageUrl, containerSelector = '#scaled-content') {
                                             // Update app state
                                             if (type === 'dose-in') {
                                                 window.app.ui.updateDoseValue('in', val);
+                                                window.app.ui.updateDrinkRatio();
                                             } else if (type === 'drink-out') {
                                                 window.app.ui.updateDoseValue('out', val);
+                                                window.app.ui.updateDrinkRatio();
                                             } else if (type === 'grind') {
                                                 window.app.ui.updateGrindValue(val);
                                             } else if (type === 'temperature') {
