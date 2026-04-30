@@ -119,6 +119,9 @@ function updateSettingsContentArea(category) {
         if (category === 'plugins') {
             setTimeout(() => window.loadPluginList?.(), 0);
         }
+        if (category === 'fontsize') {
+            setTimeout(initFontSizeSettings, 0);
+        }
     }
 }
 
@@ -1585,7 +1588,18 @@ export function renderUnitsSettings() {
     `;
 }
 
+const UI_ZOOM_MAP = { 'Small': '0.85', 'Medium': '1.0', 'Large': '1.15', 'Extra Large': '1.3' };
+
+function getUiZoomLabel() {
+    const stored = localStorage.getItem('uiZoom') || '1.0';
+    return Object.entries(UI_ZOOM_MAP).find(([, v]) => v === stored)?.[0] ?? 'Medium';
+}
+
 export function renderFontSizeSettings() {
+    const current = getUiZoomLabel();
+    const options = Object.keys(UI_ZOOM_MAP).map(label =>
+        `<option${label === current ? ' selected' : ''}>${label}</option>`
+    ).join('');
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
@@ -1598,19 +1612,26 @@ export function renderFontSizeSettings() {
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                             <p class="leading-[1.2]">Text Size</p>
                         </div>
-                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
-                            <option>Small</option>
-                            <option selected>Medium</option>
-                            <option>Large</option>
+                        <select id="text-size-select" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[220px] text-white text-[24px] p-2">
+                            ${options}
                         </select>
                     </div>
                     <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Adjust the text size for better readability
+                        Adjust the text size for better readability. Changes apply after saving.
                     </p>
                 </div>
             </div>
         </div>
     `;
+}
+
+function initFontSizeSettings() {
+    const select = document.getElementById('text-size-select');
+    if (!select) return;
+    select.addEventListener('change', (e) => {
+        const multiplier = UI_ZOOM_MAP[e.target.value] ?? '1.0';
+        localStorage.setItem('uiZoom', multiplier);
+    });
 }
 
 export function renderResolutionSettings() {

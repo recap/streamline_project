@@ -118,32 +118,40 @@ export function initScaling() {
         content.style.width = `${designWidth}px`;
         content.style.height = `${designHeight}px`;
 
-        // Calculate offsets to center the scaled content
-        const scaledWidth = designWidth * scale;
-        const scaledHeight = designHeight * scale;
-        const offsetX = (screenWidth - scaledWidth) / 2;
-        const offsetY = (screenHeight - scaledHeight) / 2;
+        // Option A: only apply user zoom when the base scale < 1.0
+        // (i.e. UI is already smaller than designed — small/tablet screens).
+        // Large screens already have readable text; zooming them would clip with no benefit.
+        const uiZoom = scale < 1.0 ? parseFloat(localStorage.getItem('uiZoom') || '1.0') : 1.0;
+        scale = scale * uiZoom;
 
-        // Apply transform with center origin
+        // Cap at 2.0x to prevent excessive scale on very high-DPI displays
+        const maxScale = 2.0;
+        if (scale > maxScale) scale = maxScale;
+
+        let offsetX, offsetY;
+        if (uiZoom > 1.0) {
+            // Option D: anchor top-left when zoomed — right/bottom overflow instead of all-sides clip.
+            // The left sidebar (primary controls) always stays fully visible.
+            offsetX = 0;
+            offsetY = 0;
+            // Option C: allow scroll so no content is permanently inaccessible when zoomed.
+            // On tablets this enables touch-scroll/pan to reach the chart and data panels.
+            viewport.style.overflow = 'auto';
+        } else {
+            // Default: center the content, clip overflow (no scrollbars)
+            const scaledWidth = designWidth * scale;
+            const scaledHeight = designHeight * scale;
+            offsetX = (screenWidth - scaledWidth) / 2;
+            offsetY = (screenHeight - scaledHeight) / 2;
+            viewport.style.overflow = 'hidden';
+        }
+
         content.style.transformOrigin = 'top left';
         content.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
 
-        // Ensure the viewport itself doesn't cause scrollbars and clips content
         viewport.style.width = `${screenWidth}px`;
         viewport.style.height = `${screenHeight}px`;
-        viewport.style.overflow = 'hidden';
-        viewport.style.margin = '0'; // Remove any margin that might cause issues
-        
-        // Additional check to prevent zooming in too much on high-resolution displays
-        const maxScale = 1.5; // Limit maximum zoom to 1.5x
-        if (scale > maxScale) {
-            scale = maxScale;
-            const clampedScaledWidth = designWidth * scale;
-            const clampedScaledHeight = designHeight * scale;
-            const clampedOffsetX = (screenWidth - clampedScaledWidth) / 2;
-            const clampedOffsetY = (screenHeight - clampedScaledHeight) / 2;
-            content.style.transform = `scale(${scale}) translate(${clampedOffsetX / scale}px, ${clampedOffsetY / scale}px)`;
-        }
+        viewport.style.margin = '0';
     }
 
     // Initial scaling with a slight delay to ensure the browser has settled the viewport dimensions
