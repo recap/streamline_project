@@ -195,7 +195,7 @@ const settingsTree = {
             { id: 'brightness', name: 'Brightness', settingsCategory: 'brightness' },
             { id: 'wakelock', name: 'Wake Lock', settingsCategory: 'wakelock' },
             { id: 'presence', name: 'Presence Detection', settingsCategory: 'presence' },
-            { id: 'fontsize', name: 'Font Size', settingsCategory: 'fontsize' },
+            { id: 'fontsize', name: 'Display Size', settingsCategory: 'fontsize' },
             { id: 'resolution', name: 'Resolution', settingsCategory: 'resolution' },
             { id: 'smartcharging', name: 'Smart Charging', settingsCategory: 'smartcharging' },
             { id: 'screensaver', name: 'Screen Saver', settingsCategory: 'screensaver' },
@@ -1603,21 +1603,21 @@ export function renderFontSizeSettings() {
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Font Size</p>
+                <p class="leading-[1.2]">Display Size</p>
             </div>
 
             <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Text Size</p>
+                            <p class="leading-[1.2]">Display Size</p>
                         </div>
                         <select id="text-size-select" class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[220px] text-white text-[24px] p-2">
                             ${options}
                         </select>
                     </div>
                     <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Adjust the text size for better readability. Changes apply after saving.
+                        Adjust the display size for better readability. Changes apply after saving.
                     </p>
                 </div>
             </div>
@@ -1757,7 +1757,7 @@ export function renderMiscellaneousSettings() {
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Font Size</p>
+                            <p class="leading-[1.2]">Display Size</p>
                         </div>
                         <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
                             <option>Small</option>
@@ -1766,7 +1766,7 @@ export function renderMiscellaneousSettings() {
                         </select>
                     </div>
                     <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Adjust the font size for better readability
+                        Adjust the display size for better readability
                     </p>
                 </div>
             </div>

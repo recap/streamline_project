@@ -121,7 +121,7 @@ export function initScaling() {
         // Option A: only apply user zoom when the base scale < 1.0
         // (i.e. UI is already smaller than designed — small/tablet screens).
         // Large screens already have readable text; zooming them would clip with no benefit.
-        const uiZoom = scale < 1.0 ? parseFloat(localStorage.getItem('uiZoom') || '1.0') : 1.0;
+        const uiZoom = parseFloat(localStorage.getItem('uiZoom') || '1.0');
         scale = scale * uiZoom;
 
         // Cap at 2.0x to prevent excessive scale on very high-DPI displays

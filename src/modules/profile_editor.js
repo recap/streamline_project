@@ -10,6 +10,21 @@ let editorState = {
     activeTab: 0,
 };
 
+// Which step indices have their temp ± buttons expanded
+let expandedTempSteps = new Set();
+
+// Which step indices have their pump target ± buttons expanded
+let expandedPumpSteps = new Set();
+
+// Which step indices have their limiter ± buttons expanded
+let expandedLimSteps = new Set();
+
+// Which max field is expanded per step index: Map<stepIndex, 'seconds'|'volume'|'weight'|null>
+let expandedMaxSteps = new Map();
+
+// Which step indices have their exit value ± buttons expanded
+let expandedExitSteps = new Set();
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const DEFAULT_STEP = {
@@ -121,7 +136,7 @@ function createToggle(options, activeValue, onChange) {
     function render() {
         buttons.forEach(({ btn, value }) => {
             if (value === currentValue) {
-                btn.className = 'bg-[var(--mimoja-blue)] text-white rounded-[8px] px-[10px] py-[6px] text-[16px] font-semibold cursor-pointer transition-colors';
+                btn.className = 'bg-[#button-primary-bg] text-white rounded-[8px] px-[10px] py-[6px] text-[16px] font-semibold cursor-pointer transition-colors';
             } else {
                 btn.className = 'bg-[#ededed] text-gray-600 rounded-[8px] px-[10px] py-[6px] text-[16px] font-semibold cursor-pointer transition-colors';
             }
@@ -159,14 +174,15 @@ function renderStepCards() {
 
     // CSS grid: label col + step cols (4 visible at once, extras scroll) + add-step col
     // 380px per step = (1920 - 220 label - 180 add) / 4; minmax keeps 4 visible, min enforces scroll beyond 4
+    const R = { HEADER: 1, TEMP: 2, PUMP: 3, EXIT: 4, FOOTER: 5 };
+    const TOTAL_ROWS = 5;
+
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = `220px repeat(${numSteps}, minmax(380px, 1fr)) 180px`;
-    container.style.gridTemplateRows = `repeat(${14}, 1fr)`;
+    container.style.gridTemplateColumns = `220px repeat(${numSteps}, minmax(300px, 1fr))`;
+    //repeat(${TOTAL_ROWS}, 1fr) 60px 1fr 1fr 1fr 60px
+    container.style.gridTemplateRows = `60px 1fr 1fr 1fr 60px`;
     container.style.height = '100%';
     container.style.width = '100%';
-
-    const R = { HEADER: 1, TEMP: 2, PUMP: 3, SENSOR: 4, TRANS: 5, TARGET: 6, LIMITER: 7, SECONDS: 8, WEIGHT: 9, VOLUME: 10, EXIT_TYPE: 11, EXIT_COND: 12, EXIT_VAL: 13, FOOTER: 14 };
-    const TOTAL_ROWS = 14;
 
     // Helper: create a grid cell, append to container
     function mkCell(row, col, className) {
@@ -194,168 +210,607 @@ function renderStepCards() {
         }
         if (tip) {
             const tipWrapper = document.createElement('div');
-            tipWrapper.className = 'tooltip tooltip-right ml-[6px]';
+            tipWrapper.className = 'tooltip tooltip-right ml-[6px] before:text-[18px]';
             tipWrapper.setAttribute('data-tip', tip);
-            tipWrapper.innerHTML = `<button type="button" class="w-[18px] h-[18px] rounded-full bg-gray-200 text-gray-500 text-[11px] font-bold flex items-center justify-center shrink-0 focus:outline-none" tabindex="-1" aria-label="Help">i</button>`;
+            tipWrapper.innerHTML = `<button type="button" class="w-[18px] h-[18px] rounded-full bg-gray-200 text-gray-500 text-[12px] font-bold flex items-center justify-center shrink-0 focus:outline-none" tabindex="-1" aria-label="Help">i</button>`;
             el.appendChild(tipWrapper);
         }
         return el;
     }
 
-    mkLabel(R.HEADER,    '');
-    mkLabel(R.TEMP,      'Temperature', 'Target temperature at the group head for this step (°C)');
-    mkLabel(R.PUMP,      'Pump',        'Flow: targets a constant flow rate (ml/s). Pressure: targets a constant pressure (bar)');
-    mkLabel(R.SENSOR,    'Sensor',      'Which thermometer drives temperature control. Coffee = group head; Water = boiler');
-    mkLabel(R.TRANS,     'Transition',  'Fast: jumps immediately to the target value. Smooth: ramps gradually from the previous step\'s value');
-    mkLabel(R.TARGET,    'Target',      'The pump target value — ml/s in Flow mode, bar in Pressure mode');
-    mkLabel(R.LIMITER,   'Limiter',     'Safety cap on the opposing axis — max pressure (bar) in Flow mode, max flow rate (ml/s) in Pressure mode');
-    mkLabel(R.SECONDS,   'Exit: Seconds',   'Maximum step duration. Machine advances to the next step when this time is reached');
-    mkLabel(R.WEIGHT,    'Exit: Weight',    'Advance to next step when scale reads this weight (g). Set to 0 to disable');
-    mkLabel(R.VOLUME,    'Exit: Volume',    'Advance to next step when dispensed volume reaches this value (ml). Set to 0 to disable');
-    mkLabel(R.EXIT_TYPE, 'Exit: Type',      'Which sensor triggers the exit — Pressure (bar), Flow (ml/s), Weight (g), or Time (sec)');
-    mkLabel(R.EXIT_COND, 'Exit: Condition', 'IS OVER fires when value exceeds the threshold; IS UNDER fires when it drops below');
-    mkLabel(R.EXIT_VAL,  'Exit: Value',     'The threshold value for the exit condition. Unit matches the Exit Type selected');
-    mkLabel(R.FOOTER,    '');
+    mkLabel(R.HEADER,  '');
+    mkLabel(R.TEMP,    'Temp',   'Tap value to adjust °C. Tap sensor to toggle Coffee/Water');
+    mkLabel(R.PUMP,    'Pump',   'Line 1: transition + flow/pressure target. Line 2: limiter cap. Tap blue values to adjust, tap unit to toggle Flow/Pressure');
+    mkLabel(R.EXIT,    'Exit',   'Line 1: exit trigger — tap type to cycle, tap over/under to toggle, tap value to adjust. Line 2: max duration, volume, weight');
+    mkLabel(R.FOOTER,  '');
 
     // ── Step columns ──────────────────────────────────────────────────────────
-    const stepCell = 'flex items-center justify-center px-[16px] py-[8px] border-r border-b border-[#e8e8e8]';
+    const stepCell = 'flex items-center justify-start px-[16px] py-[8px] border-r border-b border-[#e8e8e8]';
 
     steps.forEach((step, index) => {
         const col = index + 2;
         const isFlow = step.pump !== 'pressure';
 
         // Header: step number + name input
-        const hCell = mkCell(R.HEADER, col, 'flex items-center justify-center gap-[10px] px-[16px] py-[10px] border-r border-b-2 border-[#e8e8e8] bg-white');
+        const hCell = mkCell(R.HEADER, col, 'flex items-center justify-start px-[16px] py-[10px] border-r border-b-2 border-[#e8e8e8] bg-white');
+        const nameWrapper = document.createElement('div');
+        nameWrapper.className = 'flex items-center gap-[6px]';
         const numSpan = document.createElement('span');
-        numSpan.className = 'text-[20px] font-bold text-[var(--text-primary)] shrink-0';
+        numSpan.className = 'text-[24px] font-bold text-gray-400 shrink-0 select-none';
         numSpan.textContent = `${index + 1}.`;
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.value = step.name || '';
-        nameInput.className = 'text-[20px] font-bold text-[var(--text-primary)] bg-transparent border-b border-gray-300 outline-none focus:border-[var(--mimoja-blue)] w-[200px]';
+        nameInput.className = 'text-[24px] font-bold text-[var(--text-primary)] bg-transparent outline-none';
+        const syncSize = () => { nameInput.size = Math.max(4, nameInput.value.length + 1); };
+        syncSize();
+        nameInput.addEventListener('input', syncSize);
         nameInput.addEventListener('change', () => { editorState.profile.steps[index].name = nameInput.value; });
-        hCell.appendChild(numSpan);
-        hCell.appendChild(nameInput);
+        nameWrapper.appendChild(numSpan);
+        nameWrapper.appendChild(nameInput);
+        hCell.appendChild(nameWrapper);
 
-        // Temperature
-        const tCell = mkCell(R.TEMP, col, stepCell);
-        tCell.appendChild(createSpinner(step.temperature || 93, 0.5, '\u00b0c', (val) => {
-            editorState.profile.steps[index].temperature = val;
-        }, { min: 0, max: 110 }));
+        // Temp + Sensor combined row
+        {
+            const tCell = mkCell(R.TEMP, col, 'flex flex-col justify-center items-start px-[16px] py-[8px] border-r border-b border-[#e8e8e8] gap-[8px]');
+            const isExpanded = expandedTempSteps.has(index);
 
-        // Pump
-        const pCell = mkCell(R.PUMP, col, stepCell);
-        pCell.appendChild(createToggle(
-            [{ label: 'FLOW', value: 'flow' }, { label: 'PRESSURE', value: 'pressure' }],
-            step.pump || 'flow',
-            (val) => { editorState.profile.steps[index].pump = val; renderStepCards(); }
-        ));
+            let tempValue = step.temperature || 93;
 
-        // Transition
-        const trCell = mkCell(R.TRANS, col, stepCell);
-        trCell.appendChild(createToggle(
-            [{ label: 'FAST', value: 'fast' }, { label: 'SMOOTH', value: 'smooth' }],
-            step.transition || 'fast',
-            (val) => { editorState.profile.steps[index].transition = val; }
-        ));
+            // Sensor toggle button
+            let sensorValue = step.sensor || 'coffee';
+            const sensorBtn = document.createElement('button');
+            sensorBtn.type = 'button';
+            sensorBtn.className = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            sensorBtn.textContent = sensorValue === 'coffee' ? 'Coffee' : 'Water';
+            sensorBtn.addEventListener('click', () => {
+                sensorValue = sensorValue === 'coffee' ? 'water' : 'coffee';
+                sensorBtn.textContent = sensorValue === 'coffee' ? 'Coffee' : 'Water';
+                editorState.profile.steps[index].sensor = sensorValue;
+            });
 
-        // Sensor
-        const sensorCell = mkCell(R.SENSOR, col, stepCell);
-        sensorCell.appendChild(createToggle(
-            [{ label: 'COFFEE', value: 'coffee' }, { label: 'WATER', value: 'water' }],
-            step.sensor || 'coffee',
-            (val) => { editorState.profile.steps[index].sensor = val; }
-        ));
+            const tempDisplay = document.createElement('span');
+            tempDisplay.className = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            tempDisplay.textContent = `${tempValue}\u00b0C`;
 
-        // Target (flow rate or pressure)
-        const targetCell = mkCell(R.TARGET, col, stepCell);
-        if (isFlow) {
-            targetCell.appendChild(createSpinner(step.flow || 0, 0.1, 'ml/s', (val) => {
-                editorState.profile.steps[index].flow = val;
-            }, { min: 0, max: 15 }));
-        } else {
-            targetCell.appendChild(createSpinner(step.pressure || 0, 0.1, 'bar', (val) => {
-                editorState.profile.steps[index].pressure = val;
-            }, { min: 0, max: 16 }));
+            // Display line: [sensorBtn] [tempDisplay] — always visible
+            const tempDisplayLine = document.createElement('div');
+            tempDisplayLine.className = 'flex items-center gap-[8px]';
+            tempDisplayLine.appendChild(sensorBtn);
+            tempDisplayLine.appendChild(tempDisplay);
+
+            // Edit row: [minusBtn] [plusBtn] — hidden by default
+            const minusBtn = document.createElement('button');
+            minusBtn.type = 'button';
+            minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            minusBtn.textContent = '\u2212';
+
+            const plusBtn = document.createElement('button');
+            plusBtn.type = 'button';
+            plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            plusBtn.textContent = '+';
+
+            const tempEditRow = document.createElement('div');
+            tempEditRow.className = 'flex items-center gap-[8px]';
+            tempEditRow.style.display = isExpanded ? 'flex' : 'none';
+            tempEditRow.appendChild(minusBtn);
+            tempEditRow.appendChild(plusBtn);
+
+            tempDisplay.addEventListener('click', () => {
+                if (expandedTempSteps.has(index)) {
+                    expandedTempSteps.delete(index);
+                    tempDisplayLine.appendChild(tempDisplay);
+                    tempEditRow.style.display = 'none';
+                    sensorBtn.style.opacity = '';
+                } else {
+                    expandedTempSteps.add(index);
+                    tempEditRow.insertBefore(tempDisplay, plusBtn);
+                    tempEditRow.style.display = 'flex';
+                    sensorBtn.style.opacity = '0.3';
+                }
+            });
+
+            minusBtn.addEventListener('click', () => {
+                tempValue = roundTo(clamp(tempValue - 0.5, 0, 110), 0.5);
+                tempDisplay.textContent = `${tempValue}\u00b0C`;
+                editorState.profile.steps[index].temperature = tempValue;
+            });
+
+            plusBtn.addEventListener('click', () => {
+                tempValue = roundTo(clamp(tempValue + 0.5, 0, 110), 0.5);
+                tempDisplay.textContent = `${tempValue}\u00b0C`;
+                editorState.profile.steps[index].temperature = tempValue;
+            });
+
+            // Apply initial expanded state (move tempDisplay into edit row)
+            if (isExpanded) {
+                sensorBtn.style.opacity = '0.3';
+                tempEditRow.insertBefore(tempDisplay, plusBtn);
+            }
+
+            tCell.appendChild(tempDisplayLine);
+            tCell.appendChild(tempEditRow);
         }
 
-        // Limiter (unit flips with pump mode)
-        const limCell = mkCell(R.LIMITER, col, stepCell);
-        if (isFlow) {
-            limCell.appendChild(createSpinner(step.limiter?.value ?? 0, 0.1, 'bar', (val) => {
-                if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
-                else editorState.profile.steps[index].limiter.value = val;
-            }, { min: 0, max: 16 }));
-        } else {
-            limCell.appendChild(createSpinner(step.limiter?.value ?? 0, 0.1, 'ml/s', (val) => {
-                if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
-                else editorState.profile.steps[index].limiter.value = val;
-            }, { min: 0, max: 15 }));
-        }
+        // Pump + Limit combined row — two lines
+        {
+            const pCell = mkCell(R.PUMP, col, 'flex flex-col justify-center px-[16px] py-[4px] gap-[6px] border-r border-b border-[#e8e8e8]');
 
-        // Exit: Seconds
-        const secCell = mkCell(R.SECONDS, col, stepCell);
-        secCell.appendChild(createSpinner(step.seconds || 0, 1, 'sec', (val) => {
-            editorState.profile.steps[index].seconds = val;
-        }, { min: 0, max: 300 }));
+            // ── Line 1: pump ─────────────────────────────────────────────────
+            const pumpLine = document.createElement('div');
+            pumpLine.className = 'flex flex-col gap-[4px]';
 
-        // Exit: Weight
-        const wCell = mkCell(R.WEIGHT, col, stepCell);
-        wCell.appendChild(createSpinner(step.weight || 0, 1, 'g', (val) => {
-            editorState.profile.steps[index].weight = val;
-        }, { min: 0, max: 500 }));
+            const targetUnit = isFlow ? 'mL/s' : 'bar';
+            const targetMax  = isFlow ? 15 : 16;
+            const tStep      = 0.1;
+            const isPumpExp  = expandedPumpSteps.has(index);
 
-        // Exit: Volume
-        const vCell = mkCell(R.VOLUME, col, stepCell);
-        vCell.appendChild(createSpinner(step.volume || 0, 1, 'ml', (val) => {
-            editorState.profile.steps[index].volume = val;
-        }, { min: 0, max: 500 }));
+            let targetValue = isFlow ? (step.flow || 0) : (step.pressure || 0);
+            let transValue  = step.transition || 'fast';
 
-        // Exit type
-        const exitDef = step.exit || { type: 'pressure', condition: 'over', value: 0 };
-        const exitTypeCell = mkCell(R.EXIT_TYPE, col, stepCell);
-        exitTypeCell.appendChild(createToggle(
-            [
-                { label: 'PRESSURE', value: 'pressure' },
-                { label: 'FLOW',     value: 'flow' },
-                { label: 'WEIGHT',   value: 'weight' },
-                { label: 'TIME',     value: 'time' },
-            ],
-            exitDef.type || 'pressure',
-            (val) => {
-                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: val, condition: 'over', value: 0 };
-                else editorState.profile.steps[index].exit.type = val;
+            const transBtn = document.createElement('button');
+            transBtn.type = 'button';
+            transBtn.className = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            transBtn.textContent = transValue === 'fast' ? 'Quick' : 'Smooth';
+
+            const rampText = document.createElement('span');
+            rampText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
+            rampText.textContent = 'ramp to';
+
+            const targetDisplay = document.createElement('span');
+            targetDisplay.className = 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none';
+            targetDisplay.textContent = `${roundTo(targetValue, tStep)}`;
+
+            const unitBtn = document.createElement('button');
+            unitBtn.type = 'button';
+            unitBtn.className = 'text-white px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent';
+            unitBtn.textContent = targetUnit;
+
+            const targetWrapper = document.createElement('div');
+            targetWrapper.className = 'flex items-center bg-[var(--button-primary-bg)] rounded-[8px]';
+            const wrapDivider = document.createElement('span');
+            wrapDivider.className = 'w-[1px] h-[18px] bg-white opacity-40 shrink-0 self-center';
+            targetWrapper.appendChild(targetDisplay);
+            targetWrapper.appendChild(wrapDivider);
+            targetWrapper.appendChild(unitBtn);
+
+            // Display line: [transBtn] [rampText] [targetWrapper] — always visible
+            const pumpDisplayLine = document.createElement('div');
+            pumpDisplayLine.className = 'flex items-center gap-[8px]';
+            pumpDisplayLine.appendChild(transBtn);
+            pumpDisplayLine.appendChild(rampText);
+            pumpDisplayLine.appendChild(targetWrapper);
+
+            // Edit row: [targetMinus] [targetPlus] — hidden by default
+            const targetMinus = document.createElement('button');
+            targetMinus.type = 'button';
+            targetMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            targetMinus.textContent = '\u2212';
+
+            const targetPlus = document.createElement('button');
+            targetPlus.type = 'button';
+            targetPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            targetPlus.textContent = '+';
+
+            const pumpEditRow = document.createElement('div');
+            pumpEditRow.className = 'flex items-center gap-[8px]';
+            pumpEditRow.style.display = isPumpExp ? 'flex' : 'none';
+            pumpEditRow.appendChild(targetMinus);
+            pumpEditRow.appendChild(targetPlus);
+
+            transBtn.addEventListener('click', () => {
+                transValue = transValue === 'fast' ? 'smooth' : 'fast';
+                transBtn.textContent = transValue === 'fast' ? 'Quick' : 'Smooth';
+                editorState.profile.steps[index].transition = transValue;
+            });
+
+            targetDisplay.addEventListener('click', () => {
+                if (expandedPumpSteps.has(index)) {
+                    expandedPumpSteps.delete(index);
+                    pumpDisplayLine.appendChild(targetWrapper);
+                    pumpEditRow.style.display = 'none';
+                    transBtn.style.opacity = '';
+                } else {
+                    expandedPumpSteps.add(index);
+                    pumpEditRow.insertBefore(targetWrapper, targetPlus);
+                    pumpEditRow.style.display = 'flex';
+                    transBtn.style.opacity = '0.3';
+                }
+            });
+
+            unitBtn.addEventListener('click', () => {
+                editorState.profile.steps[index].pump = isFlow ? 'pressure' : 'flow';
                 renderStepCards();
-            }
-        ));
+            });
 
-        // Exit condition
-        const condCell = mkCell(R.EXIT_COND, col, stepCell);
-        condCell.appendChild(createToggle(
-            [{ label: 'IS UNDER', value: 'under' }, { label: 'IS OVER', value: 'over' }],
-            exitDef.condition || 'over',
-            (val) => {
-                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: 'pressure', condition: val, value: 0 };
-                else editorState.profile.steps[index].exit.condition = val;
-            }
-        ));
+            targetMinus.addEventListener('click', () => {
+                targetValue = roundTo(clamp(targetValue - tStep, 0, targetMax), tStep);
+                targetDisplay.textContent = `${targetValue}`;
+                if (isFlow) editorState.profile.steps[index].flow = targetValue;
+                else editorState.profile.steps[index].pressure = targetValue;
+            });
 
-        // Exit value — unit and max adapt to exit type
-        const EXIT_UNIT_MAP = { pressure: 'bar', flow: 'ml/s', weight: 'g', time: 'sec' };
-        const EXIT_STEP_MAP = { pressure: 0.1, flow: 0.1, weight: 0.5, time: 1 };
-        const EXIT_MAX_MAP  = { pressure: 16,  flow: 15,   weight: 500, time: 300 };
-        const exitType = exitDef.type || 'pressure';
-        const exitValCell = mkCell(R.EXIT_VAL, col, stepCell);
-        exitValCell.appendChild(createSpinner(
-            exitDef.value ?? 0,
-            EXIT_STEP_MAP[exitType] ?? 0.1,
-            EXIT_UNIT_MAP[exitType] ?? 'bar',
-            (val) => {
-                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: 'over', value: val };
-                else editorState.profile.steps[index].exit.value = val;
-            },
-            { min: 0, max: EXIT_MAX_MAP[exitType] ?? 16 }
-        ));
+            targetPlus.addEventListener('click', () => {
+                targetValue = roundTo(clamp(targetValue + tStep, 0, targetMax), tStep);
+                targetDisplay.textContent = `${targetValue}`;
+                if (isFlow) editorState.profile.steps[index].flow = targetValue;
+                else editorState.profile.steps[index].pressure = targetValue;
+            });
+
+            if (isPumpExp) {
+                transBtn.style.opacity = '0.3';
+                pumpEditRow.insertBefore(targetWrapper, targetPlus);
+            }
+
+            pumpLine.appendChild(pumpDisplayLine);
+            pumpLine.appendChild(pumpEditRow);
+
+            // ── Line 2: limiter ───────────────────────────────────────────────
+            const limLine = document.createElement('div');
+            limLine.className = 'flex flex-col gap-[4px]';
+
+            const limUnit = isFlow ? 'bar' : 'mL/s';
+            const limMax  = isFlow ? 16 : 15;
+            const lStep   = 0.1;
+            const isLimExp = expandedLimSteps.has(index);
+
+            let limValue = step.limiter?.value ?? 0;
+
+            const withText = document.createElement('span');
+            withText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
+            withText.textContent = 'With';
+
+            const limDisplay = document.createElement('span');
+            limDisplay.className = 'font-bold text-[20px] text-[var(--mimoja-blue-v2)] cursor-pointer select-none';
+            limDisplay.textContent = `${roundTo(limValue, lStep)}`;
+
+            const limUnitText = document.createElement('span');
+            limUnitText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
+            limUnitText.textContent = `${limUnit} limit`;
+
+            // Display line: [withText] [limDisplay] [limUnitText] — always visible
+            const limDisplayLine = document.createElement('div');
+            limDisplayLine.className = 'flex items-center gap-[8px]';
+            limDisplayLine.appendChild(withText);
+            limDisplayLine.appendChild(limDisplay);
+            limDisplayLine.appendChild(limUnitText);
+
+            // Edit row: [limMinus] [limPlus] — hidden by default
+            const limMinus = document.createElement('button');
+            limMinus.type = 'button';
+            limMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            limMinus.textContent = '\u2212';
+
+            const limPlus = document.createElement('button');
+            limPlus.type = 'button';
+            limPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            limPlus.textContent = '+';
+
+            const limEditRow = document.createElement('div');
+            limEditRow.className = 'flex items-center gap-[8px]';
+            limEditRow.style.display = isLimExp ? 'flex' : 'none';
+            limEditRow.appendChild(limMinus);
+            limEditRow.appendChild(limPlus);
+
+            limDisplay.addEventListener('click', () => {
+                if (expandedLimSteps.has(index)) {
+                    expandedLimSteps.delete(index);
+                    limDisplayLine.insertBefore(limDisplay, limUnitText);
+                    limEditRow.style.display = 'none';
+                    withText.style.opacity = '';
+                    limUnitText.style.opacity = '';
+                } else {
+                    expandedLimSteps.add(index);
+                    limEditRow.insertBefore(limDisplay, limPlus);
+                    limEditRow.style.display = 'flex';
+                    withText.style.opacity = '0.3';
+                    limUnitText.style.opacity = '0.3';
+                }
+            });
+
+            limMinus.addEventListener('click', () => {
+                limValue = roundTo(clamp(limValue - lStep, 0, limMax), lStep);
+                limDisplay.textContent = `${limValue}`;
+                if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: limValue, range: 0.6 };
+                else editorState.profile.steps[index].limiter.value = limValue;
+            });
+
+            limPlus.addEventListener('click', () => {
+                limValue = roundTo(clamp(limValue + lStep, 0, limMax), lStep);
+                limDisplay.textContent = `${limValue}`;
+                if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: limValue, range: 0.6 };
+                else editorState.profile.steps[index].limiter.value = limValue;
+            });
+
+            if (isLimExp) {
+                withText.style.opacity = '0.3';
+                limUnitText.style.opacity = '0.3';
+                limEditRow.insertBefore(limDisplay, limPlus);
+            }
+
+            limLine.appendChild(limDisplayLine);
+            limLine.appendChild(limEditRow);
+
+            pCell.appendChild(pumpLine);
+            pCell.appendChild(limLine);
+        }
+
+        // Exit + Max combined row — two lines
+        {
+            const exitCell = mkCell(R.EXIT, col, 'flex flex-col justify-center px-[16px] py-[4px] gap-[6px] border-r border-b border-[#e8e8e8]');
+
+            // ── Line 1: exit condition ────────────────────────────────────────
+            const exitLine = document.createElement('div');
+            exitLine.className = 'flex flex-col gap-[4px]';
+
+            const EXIT_TYPES   = ['pressure', 'flow', 'weight', 'time', 'off'];
+            const EXIT_UNIT_MAP = { pressure: 'bar', flow: 'mL/s', weight: 'g', time: 'sec' };
+            const EXIT_STEP_MAP = { pressure: 0.1, flow: 0.1, weight: 0.5, time: 1 };
+            const EXIT_MAX_MAP  = { pressure: 16,  flow: 15,  weight: 500, time: 300 };
+
+            const exitDef  = step.exit || { type: 'pressure', condition: 'over', value: 0 };
+            let exitType   = exitDef.type || 'pressure';
+            let exitCond   = exitDef.condition || 'over';
+            let exitValue  = exitDef.value ?? 0;
+
+            const btnBase = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const btnGray = 'bg-gray-400 text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const btnGrayFlash = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+
+            const typeBtn = document.createElement('button');
+            typeBtn.type = 'button';
+            typeBtn.className = btnGrayFlash;
+            typeBtn.textContent = exitType.charAt(0).toUpperCase() + exitType.slice(1);
+
+            const condBtn = document.createElement('button');
+            condBtn.type = 'button';
+            condBtn.className = btnGrayFlash;
+            condBtn.textContent = exitCond.charAt(0).toUpperCase() + exitCond.slice(1);
+
+            const isExitExpanded = expandedExitSteps.has(index);
+
+            const valueDisplay = document.createElement('span');
+            valueDisplay.className = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none whitespace-nowrap';
+            valueDisplay.textContent = exitType !== 'off' ? `${exitValue} ${EXIT_UNIT_MAP[exitType]}` : '';
+
+            // Display line: [typeBtn] [condBtn] [valueDisplay] — always visible
+            const exitDisplayLine = document.createElement('div');
+            exitDisplayLine.className = 'flex items-center gap-[8px]';
+            exitDisplayLine.appendChild(typeBtn);
+            exitDisplayLine.appendChild(condBtn);
+            exitDisplayLine.appendChild(valueDisplay);
+
+            // Edit row: [exitMinus] [exitPlus] — hidden by default
+            const exitMinus = document.createElement('button');
+            exitMinus.type = 'button';
+            exitMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            exitMinus.textContent = '\u2212';
+
+            const exitPlus = document.createElement('button');
+            exitPlus.type = 'button';
+            exitPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            exitPlus.textContent = '+';
+
+            const exitEditRow = document.createElement('div');
+            exitEditRow.className = 'flex items-center gap-[8px]';
+            exitEditRow.style.display = isExitExpanded ? 'flex' : 'none';
+            exitEditRow.appendChild(exitMinus);
+            exitEditRow.appendChild(exitPlus);
+
+            function applyExitOffState() {
+                const isOff = exitType === 'off';
+                typeBtn.className = isOff ? btnGray : btnGrayFlash;
+                condBtn.style.display      = isOff ? 'none' : '';
+                valueDisplay.style.display = isOff ? 'none' : '';
+                if (isOff) {
+                    // Move valueDisplay back to displayLine and collapse
+                    if (!exitDisplayLine.contains(valueDisplay)) {
+                        exitDisplayLine.appendChild(valueDisplay);
+                    }
+                    exitEditRow.style.display = 'none';
+                    expandedExitSteps.delete(index);
+                    typeBtn.style.opacity = '';
+                    condBtn.style.opacity = '';
+                } else {
+                    exitEditRow.style.display = expandedExitSteps.has(index) ? 'flex' : 'none';
+                }
+            }
+            applyExitOffState();
+
+            typeBtn.addEventListener('click', () => {
+                exitType = EXIT_TYPES[(EXIT_TYPES.indexOf(exitType) + 1) % EXIT_TYPES.length];
+                typeBtn.textContent = exitType.charAt(0).toUpperCase() + exitType.slice(1);
+                if (exitType !== 'off') valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
+                applyExitOffState();
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                else editorState.profile.steps[index].exit.type = exitType;
+            });
+
+            condBtn.addEventListener('click', () => {
+                exitCond = exitCond === 'over' ? 'under' : 'over';
+                condBtn.textContent = exitCond.charAt(0).toUpperCase() + exitCond.slice(1);
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                else editorState.profile.steps[index].exit.condition = exitCond;
+            });
+
+            valueDisplay.addEventListener('click', () => {
+                if (expandedExitSteps.has(index)) {
+                    expandedExitSteps.delete(index);
+                    exitDisplayLine.appendChild(valueDisplay);
+                    exitEditRow.style.display = 'none';
+                    typeBtn.style.opacity = '';
+                    condBtn.style.opacity = '';
+                } else {
+                    expandedExitSteps.add(index);
+                    exitEditRow.insertBefore(valueDisplay, exitPlus);
+                    exitEditRow.style.display = 'flex';
+                    typeBtn.style.opacity = '0.3';
+                    condBtn.style.opacity = '0.3';
+                }
+            });
+
+            exitMinus.addEventListener('click', () => {
+                exitValue = roundTo(clamp(exitValue - EXIT_STEP_MAP[exitType], 0, EXIT_MAX_MAP[exitType]), EXIT_STEP_MAP[exitType]);
+                valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                else editorState.profile.steps[index].exit.value = exitValue;
+            });
+
+            exitPlus.addEventListener('click', () => {
+                exitValue = roundTo(clamp(exitValue + EXIT_STEP_MAP[exitType], 0, EXIT_MAX_MAP[exitType]), EXIT_STEP_MAP[exitType]);
+                valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
+                if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                else editorState.profile.steps[index].exit.value = exitValue;
+            });
+
+            if (isExitExpanded) {
+                typeBtn.style.opacity = '0.3';
+                condBtn.style.opacity = '0.3';
+                exitEditRow.insertBefore(valueDisplay, exitPlus);
+            }
+
+            exitLine.appendChild(exitDisplayLine);
+            exitLine.appendChild(exitEditRow);
+
+            // ── Line 2: max values ────────────────────────────────────────────
+            const maxLine = document.createElement('div');
+            maxLine.className = 'flex items-center gap-[8px]';
+
+            const MAX_FIELDS = [
+                { key: 'weight',  unit: 'g',   fStep: 1, fMax: 500 },
+                { key: 'seconds', unit: 'sec', fStep: 1, fMax: 300 },
+                { key: 'volume',  unit: 'ml',  fStep: 1, fMax: 500 },
+            ];
+
+            const fieldRefs = [];
+
+            const blueDisplayClass = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const grayDisplayClass = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+
+            const maxPlaceholder = document.createElement('span');
+            maxPlaceholder.className = grayDisplayClass;
+            maxPlaceholder.textContent = 'Max';
+            maxLine.appendChild(maxPlaceholder);
+
+            function updateMaxSectionVisibility() {
+                const activeKey = expandedMaxSteps.get(index) ?? null;
+                const nonZeroCount = fieldRefs.filter(r => r.getValue() > 0).length;
+                const allZero = nonZeroCount === 0;
+
+                maxPlaceholder.style.display = (allZero && activeKey === null) ? '' : 'none';
+
+                fieldRefs.forEach(ref => {
+                    const show = activeKey !== null || ref.getValue() > 0;
+                    ref.section.style.display = show ? '' : 'none';
+
+                    if (activeKey === ref.key) {
+                        if (!ref.sectionEditRow.contains(ref.display)) {
+                            ref.sectionEditRow.insertBefore(ref.display, ref.plusBtn);
+                        }
+                        ref.sectionEditRow.style.display = 'flex';
+                    } else {
+                        if (!ref.sectionDisplayLine.contains(ref.display)) {
+                            ref.sectionDisplayLine.appendChild(ref.display);
+                        }
+                        ref.sectionEditRow.style.display = 'none';
+                    }
+
+                    const isBlue = nonZeroCount === 1 ? ref.getValue() > 0 : ref.key === 'weight';
+                    ref.display.className = isBlue ? blueDisplayClass : grayDisplayClass;
+                });
+            }
+
+            maxPlaceholder.addEventListener('click', () => {
+                expandedMaxSteps.set(index, 'weight');
+                updateMaxSectionVisibility();
+                fieldRefs.forEach(ref => {
+                    ref.section.style.opacity = ref.key !== 'weight' ? '0.3' : '';
+                });
+            });
+
+            MAX_FIELDS.forEach(({ key, unit, fStep, fMax }) => {
+                const section = document.createElement('div');
+                section.className = 'flex flex-col gap-[4px]';
+
+                const isThisExpanded = (expandedMaxSteps.get(index) ?? null) === key;
+                let fieldValue = step[key] || 0;
+
+                const display = document.createElement('span');
+                display.className = grayDisplayClass;
+                display.textContent = `${fieldValue} ${unit}`;
+
+                // Display line: [display] only
+                const sectionDisplayLine = document.createElement('div');
+                sectionDisplayLine.className = 'flex items-center';
+                sectionDisplayLine.appendChild(display);
+
+                // Edit row: [minusBtn] [plusBtn] — hidden by default
+                const minusBtn = document.createElement('button');
+                minusBtn.type = 'button';
+                minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+                minusBtn.textContent = '\u2212';
+
+                const plusBtn = document.createElement('button');
+                plusBtn.type = 'button';
+                plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+                plusBtn.textContent = '+';
+
+                const sectionEditRow = document.createElement('div');
+                sectionEditRow.className = 'flex items-center gap-[8px]';
+                sectionEditRow.style.display = isThisExpanded ? 'flex' : 'none';
+                sectionEditRow.appendChild(minusBtn);
+                sectionEditRow.appendChild(plusBtn);
+
+                fieldRefs.push({ key, minusBtn, plusBtn, display, section, sectionDisplayLine, sectionEditRow, getValue: () => fieldValue });
+
+                display.addEventListener('click', () => {
+                    const current = expandedMaxSteps.get(index) ?? null;
+                    fieldRefs.forEach(ref => {
+                        ref.section.style.display = '';
+                        ref.section.style.opacity = '';
+                    });
+                    if (current === key) {
+                        expandedMaxSteps.delete(index);
+                        updateMaxSectionVisibility();
+                    } else {
+                        expandedMaxSteps.set(index, key);
+                        fieldRefs.forEach(ref => {
+                            if (ref.key !== key) ref.section.style.opacity = '0.3';
+                        });
+                        updateMaxSectionVisibility();
+                    }
+                });
+
+                minusBtn.addEventListener('click', () => {
+                    fieldValue = roundTo(clamp(fieldValue - fStep, 0, fMax), fStep);
+                    display.textContent = `${fieldValue} ${unit}`;
+                    editorState.profile.steps[index][key] = fieldValue;
+                    updateMaxSectionVisibility();
+                });
+
+                plusBtn.addEventListener('click', () => {
+                    fieldValue = roundTo(clamp(fieldValue + fStep, 0, fMax), fStep);
+                    display.textContent = `${fieldValue} ${unit}`;
+                    editorState.profile.steps[index][key] = fieldValue;
+                    updateMaxSectionVisibility();
+                });
+
+                section.appendChild(sectionDisplayLine);
+                section.appendChild(sectionEditRow);
+                maxLine.appendChild(section);
+            });
+
+            const initialMax = expandedMaxSteps.get(index) ?? null;
+            if (initialMax) {
+                fieldRefs.forEach(ref => {
+                    if (ref.key !== initialMax) ref.section.style.opacity = '0.3';
+                });
+            }
+            updateMaxSectionVisibility();
+
+            exitCell.appendChild(exitLine);
+            exitCell.appendChild(maxLine);
+        }
 
         // Footer: delete + insert
         const fCell = mkCell(R.FOOTER, col, 'flex justify-center items-center gap-[40px] px-[16px] py-[8px] border-r border-[#e8e8e8]');
@@ -378,21 +833,6 @@ function renderStepCards() {
         fCell.appendChild(insertBtn);
     });
 
-    // ── Add Step column (spans all rows) ─────────────────────────────────────
-    const addCell = document.createElement('div');
-    addCell.style.gridRow = `1 / ${TOTAL_ROWS + 1}`;
-    addCell.style.gridColumn = numSteps + 2;
-    addCell.className = 'flex items-center justify-center';
-
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'w-[120px] h-[120px] bg-[#ededed] rounded-[30px] flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors';
-    addBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-[var(--mimoja-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
-    addBtn.setAttribute('aria-label', 'Add new step');
-    addBtn.addEventListener('click', () => { editorState.profile.steps.push(deepCopy(DEFAULT_STEP)); renderStepCards(); });
-
-    addCell.appendChild(addBtn);
-    container.appendChild(addCell);
 }
 
 function renderSettingsTab() {
@@ -467,19 +907,21 @@ function renderSettingsTab() {
 
 // ─── Review Tab ─────────────────────────────────────────────────────────────
 
-function describeStep(step, index) {
+function describeStep(step, _index) {
+    const b = (text) => `<span class="review-value font-semibold text-[var(--button-primary-bg)] cursor-pointer">${text}</span>`;
     const lines = [];
-    const pump = step.pump === 'pressure' ? 'pressure' : 'flow';
+    const isFlow = step.pump !== 'pressure';
     const transition = step.transition === 'smooth' ? 'smoothly' : 'quickly';
+    const sensor = step.sensor === 'water' ? 'Water' : 'Coffee';
 
     // Temperature
-    lines.push(`Set coffee temperature to <span class="font-semibold text-[#385a92]">${step.temperature ?? 93} °C</span>`);
+    lines.push(`Set ${b(sensor)} temperature to ${b(`${step.temperature ?? 93} °C`)}`);
 
     // Pump target
-    if (pump === 'flow') {
-        lines.push(`Pour ${transition} at a rate of <span class="font-semibold text-[#385a92]">${step.flow ?? 0} ml/s</span>`);
+    if (isFlow) {
+        lines.push(`Pour ${b(transition)} at a rate of ${b(`${step.flow ?? 0} ml/s`)}`);
     } else {
-        lines.push(`${transition === 'quickly' ? 'Pressurize' : 'Build pressure'} ${transition} to <span class="font-semibold text-[#385a92]">${step.pressure ?? 0} bar</span>`);
+        lines.push(`${transition === 'quickly' ? 'Pressurize' : 'Build pressure'} ${b(transition)} to ${b(`${step.pressure ?? 0} bar`)}`);
     }
 
     // Duration / volume limit
@@ -487,17 +929,17 @@ function describeStep(step, index) {
     const volVal = step.volume ?? 0;
     const wgtVal = step.weight ?? 0;
     const parts = [];
-    if (secVal > 0) parts.push(`<span class="font-semibold text-[#385a92]">${secVal} sec</span>`);
-    if (volVal > 0) parts.push(`<span class="font-semibold text-[#385a92]">${volVal} ml</span>`);
-    if (wgtVal > 0) parts.push(`<span class="font-semibold text-[#385a92]">${wgtVal} g</span>`);
+    if (wgtVal > 0) parts.push(b(`${wgtVal} g`));
+    if (secVal > 0) parts.push(b(`${secVal} sec`));
+    if (volVal > 0) parts.push(b(`${volVal} ml`));
     if (parts.length) lines.push(`For a maximum of ${parts.join(' or ')}`);
 
     // Exit condition
-    if (step.exit?.value !== undefined && step.exit.value !== 0) {
+    if (step.exit?.value !== undefined && step.exit.value !== 0 && step.exit.type !== 'off') {
         const exitType = step.exit.type ?? 'pressure';
         const exitCond = step.exit.condition === 'under' ? 'under' : 'over';
         const exitUnit = exitType === 'flow' ? 'ml/s' : exitType === 'pressure' ? 'bar' : exitType === 'weight' ? 'g' : 'sec';
-        lines.push(`Move on if ${exitType} is ${exitCond} <span class="font-semibold text-[#385a92]">${step.exit.value} ${exitUnit}</span>`);
+        lines.push(`Move on if ${b(exitType)} is ${b(exitCond)} ${b(`${step.exit.value} ${exitUnit}`)}`);
     }
 
     return lines;
@@ -513,7 +955,7 @@ function renderReviewTab() {
         stepsList.innerHTML = '';
         (profile.steps || []).forEach((step, i) => {
             const row = document.createElement('div');
-            row.className = 'flex gap-[16px] items-start text-[#121212]';
+            row.className = 'flex gap-[12px] items-start text-[#121212]';
 
             const nameEl = document.createElement('p');
             nameEl.className = 'font-semibold text-[20px] w-[160px] shrink-0 leading-[1.3]';
@@ -521,7 +963,7 @@ function renderReviewTab() {
             row.appendChild(nameEl);
 
             const bulletCol = document.createElement('ul');
-            bulletCol.className = 'flex flex-col gap-[8px] list-disc list-inside text-[20px]';
+            bulletCol.className = 'flex flex-col gap-[3px] list-disc list-inside text-[20px]';
             for (const line of describeStep(step, i)) {
                 const li = document.createElement('li');
                 li.innerHTML = line;
@@ -529,6 +971,9 @@ function renderReviewTab() {
             }
             row.appendChild(bulletCol);
             stepsList.appendChild(row);
+        });
+        stepsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('review-value')) setActiveTab(0);
         });
     }
 
@@ -538,7 +983,7 @@ function renderReviewTab() {
         settingsList.innerHTML = '';
         const s = (label, val) => {
             const li = document.createElement('li');
-            li.innerHTML = `${label} <span class="font-semibold text-[#385a92]">${val}</span>`;
+            li.innerHTML = `${label} <span class="font-semibold text-[var(--button-primary-bg)]">${val}</span>`;
             settingsList.appendChild(li);
         };
         if (profile.tank_temperature != null) s('Preheat water tank at', `${profile.tank_temperature} °C`);
@@ -618,9 +1063,9 @@ function setActiveTab(tabIndex) {
     document.querySelectorAll('.editor-tab-btn').forEach((btn) => {
         const idx = parseInt(btn.dataset.tab, 10);
         if (idx === tabIndex) {
-            btn.className = 'editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide bg-[#385a92] text-white';
+            btn.className = 'editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide bg-[var(--button-primary-bg)] text-white';
         } else {
-            btn.className = 'editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide text-[#5f7ba8] bg-transparent';
+            btn.className = 'editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide text-[var(--button-primary-bg)] bg-transparent';
         }
     });
 
@@ -640,13 +1085,11 @@ function setActiveTab(tabIndex) {
 function initTitleEditing() {
     const display = document.getElementById('editor-title-display');
     const input = document.getElementById('editor-title-input');
-    const editIcon = document.getElementById('editor-title-edit-icon');
 
     if (!display || !input) return;
 
     function startEditing() {
         display.classList.add('hidden');
-        editIcon.classList.add('hidden');
         input.classList.remove('hidden');
         input.value = editorState.profile.title || '';
         input.focus();
@@ -661,11 +1104,9 @@ function initTitleEditing() {
         }
         input.classList.add('hidden');
         display.classList.remove('hidden');
-        editIcon.classList.remove('hidden');
     }
 
     display.addEventListener('click', startEditing);
-    if (editIcon) editIcon.addEventListener('click', startEditing);
 
     input.addEventListener('blur', stopEditing);
     input.addEventListener('keydown', (e) => {
@@ -771,6 +1212,11 @@ export async function initializeProfileEditor() {
     editorState.sourceProfileId = profileRecord.id;
     editorState.profile = deepCopy(profileRecord.profile);
     editorState.activeTab = 0;
+    expandedTempSteps.clear();
+    expandedPumpSteps.clear();
+    expandedLimSteps.clear();
+    expandedMaxSteps.clear();
+    expandedExitSteps.clear();
 
     // 3. Populate title
     const titleDisplay = document.getElementById('editor-title-display');
