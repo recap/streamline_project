@@ -25,7 +25,15 @@ let expandedMaxSteps = new Map();
 // Which step indices have their exit value ± buttons expanded
 let expandedExitSteps = new Set();
 
+// Which review field is currently expanded (at most one at a time)
+let expandedReviewField = null; // { collapseFunc: fn } | null
+
 // ─── Constants ──────────────────────────────────────────────────────────────
+
+const EXIT_TYPES    = ['pressure', 'flow', 'weight', 'time', 'off'];
+const EXIT_UNIT_MAP = { pressure: 'bar', flow: 'mL/s', weight: 'g', time: 'sec' };
+const EXIT_STEP_MAP = { pressure: 0.1, flow: 0.1, weight: 0.5, time: 1 };
+const EXIT_MAX_MAP  = { pressure: 16,  flow: 15,  weight: 500, time: 300 };
 
 const DEFAULT_STEP = {
     name: 'New Step',
@@ -73,7 +81,7 @@ function createSpinner(initialValue, step, unit, onChange, opts = {}) {
 
     const minusBtn = document.createElement('button');
     minusBtn.type = 'button';
-    minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+    minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
     minusBtn.textContent = '\u2212';
     minusBtn.setAttribute('aria-label', 'Decrease');
 
@@ -82,7 +90,7 @@ function createSpinner(initialValue, step, unit, onChange, opts = {}) {
 
     const plusBtn = document.createElement('button');
     plusBtn.type = 'button';
-    plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+    plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
     plusBtn.textContent = '+';
     plusBtn.setAttribute('aria-label', 'Increase');
 
@@ -174,13 +182,12 @@ function renderStepCards() {
 
     // CSS grid: label col + step cols (4 visible at once, extras scroll) + add-step col
     // 380px per step = (1920 - 220 label - 180 add) / 4; minmax keeps 4 visible, min enforces scroll beyond 4
-    const R = { HEADER: 1, TEMP: 2, PUMP: 3, EXIT: 4, FOOTER: 5 };
-    const TOTAL_ROWS = 5;
+    const R = { HEADER: 1, TEMP: 2, PUMP: 3, MAX: 4, EXIT: 5, FOOTER: 6 };
+    const TOTAL_ROWS = 6;
 
     container.style.display = 'grid';
     container.style.gridTemplateColumns = `220px repeat(${numSteps}, minmax(300px, 1fr))`;
-    //repeat(${TOTAL_ROWS}, 1fr) 60px 1fr 1fr 1fr 60px
-    container.style.gridTemplateRows = `60px 1fr 1fr 1fr 60px`;
+    container.style.gridTemplateRows = `60px 1fr 1fr 1fr 1fr 60px`;
     container.style.height = '100%';
     container.style.width = '100%';
 
@@ -219,9 +226,10 @@ function renderStepCards() {
     }
 
     mkLabel(R.HEADER,  '');
-    mkLabel(R.TEMP,    'Temp',   'Tap value to adjust °C. Tap sensor to toggle Coffee/Water');
-    mkLabel(R.PUMP,    'Pump',   'Line 1: transition + flow/pressure target. Line 2: limiter cap. Tap blue values to adjust, tap unit to toggle Flow/Pressure');
-    mkLabel(R.EXIT,    'Exit',   'Line 1: exit trigger — tap type to cycle, tap over/under to toggle, tap value to adjust. Line 2: max duration, volume, weight');
+    mkLabel(R.TEMP,    'Temp');
+    mkLabel(R.PUMP,    'Pump');
+    mkLabel(R.MAX,     'Max');
+    mkLabel(R.EXIT,    'Exit if');
     mkLabel(R.FOOTER,  '');
 
     // ── Step columns ──────────────────────────────────────────────────────────
@@ -256,12 +264,13 @@ function renderStepCards() {
             const isExpanded = expandedTempSteps.has(index);
 
             let tempValue = step.temperature || 93;
+            let tempTimer = null;
 
             // Sensor toggle button
             let sensorValue = step.sensor || 'coffee';
             const sensorBtn = document.createElement('button');
             sensorBtn.type = 'button';
-            sensorBtn.className = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            sensorBtn.className = 'text-[var(--text-primary) border border-[var(--secondary-button-bg)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
             sensorBtn.textContent = sensorValue === 'coffee' ? 'Coffee' : 'Water';
             sensorBtn.addEventListener('click', () => {
                 sensorValue = sensorValue === 'coffee' ? 'water' : 'coffee';
@@ -272,64 +281,103 @@ function renderStepCards() {
             const tempDisplay = document.createElement('span');
             tempDisplay.className = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
             tempDisplay.textContent = `${tempValue}\u00b0C`;
+            tempDisplay.style.position = 'relative';
 
-            // Display line: [sensorBtn] [tempDisplay] — always visible
-            const tempDisplayLine = document.createElement('div');
-            tempDisplayLine.className = 'flex items-center gap-[8px]';
-            tempDisplayLine.appendChild(sensorBtn);
-            tempDisplayLine.appendChild(tempDisplay);
-
-            // Edit row: [minusBtn] [plusBtn] — hidden by default
             const minusBtn = document.createElement('button');
             minusBtn.type = 'button';
-            minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             minusBtn.textContent = '\u2212';
+            minusBtn.style.position = 'absolute';
+            minusBtn.style.right = '100%';
+            minusBtn.style.top = '50%';
+            minusBtn.style.transform = 'translateY(-50%)';
+            minusBtn.style.marginRight = '4px';
+            minusBtn.style.display = isExpanded ? '' : 'none';
 
             const plusBtn = document.createElement('button');
             plusBtn.type = 'button';
-            plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             plusBtn.textContent = '+';
+            plusBtn.style.position = 'absolute';
+            plusBtn.style.left = '100%';
+            plusBtn.style.top = '50%';
+            plusBtn.style.transform = 'translateY(-50%)';
+            plusBtn.style.marginLeft = '4px';
+            plusBtn.style.display = isExpanded ? '' : 'none';
 
-            const tempEditRow = document.createElement('div');
-            tempEditRow.className = 'flex items-center gap-[8px]';
-            tempEditRow.style.display = isExpanded ? 'flex' : 'none';
-            tempEditRow.appendChild(minusBtn);
-            tempEditRow.appendChild(plusBtn);
+            tempDisplay.appendChild(minusBtn);
+            tempDisplay.appendChild(plusBtn);
 
-            tempDisplay.addEventListener('click', () => {
+            // Display line: [tempDisplay] [sensorBtn] — always visible, never moves
+            const tempDisplayLine = document.createElement('div');
+            tempDisplayLine.className = 'flex items-center gap-[8px]';
+            tempDisplayLine.appendChild(tempDisplay);
+            tempDisplayLine.appendChild(sensorBtn);
+
+            function collapseTempSpinner() {
+                clearTimeout(tempTimer);
+                expandedTempSteps.delete(index);
+                minusBtn.style.display = 'none';
+                plusBtn.style.display = 'none';
+                sensorBtn.style.opacity = '';
+            }
+
+            function startTempTimer() {
+                clearTimeout(tempTimer);
+                tempTimer = setTimeout(collapseTempSpinner, 2000);
+            }
+
+            let tempLongPressTimer = null;
+            let tempLongPressFired = false;
+
+            tempDisplay.addEventListener('pointerdown', () => {
+                if (!expandedTempSteps.has(index)) return;
+                tempLongPressFired = false;
+                tempLongPressTimer = setTimeout(() => {
+                    tempLongPressFired = true;
+                    tempValue = 0;
+                    tempDisplay.firstChild.textContent = '0\u00b0C';
+                    editorState.profile.steps[index].temperature = 0;
+                    startTempTimer();
+                }, 600);
+            });
+            tempDisplay.addEventListener('pointerup',     () => clearTimeout(tempLongPressTimer));
+            tempDisplay.addEventListener('pointerleave',  () => clearTimeout(tempLongPressTimer));
+            tempDisplay.addEventListener('pointercancel', () => clearTimeout(tempLongPressTimer));
+
+            tempDisplay.addEventListener('click', (e) => {
+                if (e.target === minusBtn || e.target === plusBtn) return;
+                if (tempLongPressFired) { tempLongPressFired = false; return; }
                 if (expandedTempSteps.has(index)) {
-                    expandedTempSteps.delete(index);
-                    tempDisplayLine.appendChild(tempDisplay);
-                    tempEditRow.style.display = 'none';
-                    sensorBtn.style.opacity = '';
+                    collapseTempSpinner();
                 } else {
                     expandedTempSteps.add(index);
-                    tempEditRow.insertBefore(tempDisplay, plusBtn);
-                    tempEditRow.style.display = 'flex';
+                    minusBtn.style.display = '';
+                    plusBtn.style.display = '';
                     sensorBtn.style.opacity = '0.3';
+                    startTempTimer();
                 }
             });
 
-            minusBtn.addEventListener('click', () => {
+            minusBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 tempValue = roundTo(clamp(tempValue - 0.5, 0, 110), 0.5);
-                tempDisplay.textContent = `${tempValue}\u00b0C`;
+                tempDisplay.childNodes[0].textContent = `${tempValue}\u00b0C`;
                 editorState.profile.steps[index].temperature = tempValue;
+                startTempTimer();
             });
 
-            plusBtn.addEventListener('click', () => {
+            plusBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 tempValue = roundTo(clamp(tempValue + 0.5, 0, 110), 0.5);
-                tempDisplay.textContent = `${tempValue}\u00b0C`;
+                tempDisplay.childNodes[0].textContent = `${tempValue}\u00b0C`;
                 editorState.profile.steps[index].temperature = tempValue;
+                startTempTimer();
             });
 
-            // Apply initial expanded state (move tempDisplay into edit row)
-            if (isExpanded) {
-                sensorBtn.style.opacity = '0.3';
-                tempEditRow.insertBefore(tempDisplay, plusBtn);
-            }
+            if (isExpanded) sensorBtn.style.opacity = '0.3';
 
             tCell.appendChild(tempDisplayLine);
-            tCell.appendChild(tempEditRow);
         }
 
         // Pump + Limit combined row — two lines
@@ -347,15 +395,16 @@ function renderStepCards() {
 
             let targetValue = isFlow ? (step.flow || 0) : (step.pressure || 0);
             let transValue  = step.transition || 'fast';
+            let pumpTimer = null;
 
             const transBtn = document.createElement('button');
             transBtn.type = 'button';
-            transBtn.className = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            transBtn.className = ' border border-[var(--secondary-button-bg)] text-black rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
             transBtn.textContent = transValue === 'fast' ? 'Quick' : 'Smooth';
 
             const rampText = document.createElement('span');
-            rampText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
-            rampText.textContent = 'ramp to';
+            rampText.className = 'text-[20px] text-[var(--text-primary)] select-none';
+            rampText.textContent = 'ramp';
 
             const targetDisplay = document.createElement('span');
             targetDisplay.className = 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none';
@@ -367,36 +416,71 @@ function renderStepCards() {
             unitBtn.textContent = targetUnit;
 
             const targetWrapper = document.createElement('div');
-            targetWrapper.className = 'flex items-center bg-[var(--button-primary-bg)] rounded-[8px]';
+            targetWrapper.className = 'flex items-center rounded-[8px]';
             const wrapDivider = document.createElement('span');
             wrapDivider.className = 'w-[1px] h-[18px] bg-white opacity-40 shrink-0 self-center';
             targetWrapper.appendChild(targetDisplay);
             targetWrapper.appendChild(wrapDivider);
             targetWrapper.appendChild(unitBtn);
 
-            // Display line: [transBtn] [rampText] [targetWrapper] — always visible
-            const pumpDisplayLine = document.createElement('div');
-            pumpDisplayLine.className = 'flex items-center gap-[8px]';
-            pumpDisplayLine.appendChild(transBtn);
-            pumpDisplayLine.appendChild(rampText);
-            pumpDisplayLine.appendChild(targetWrapper);
+            function updateTargetStyle() {
+                const active = targetValue > 0;
+                targetWrapper.style.background = active ? 'var(--button-primary-bg)' : 'var(--secondary-button-bg)';
+                const txtCls = active ? 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none' : 'font-bold text-[20px] text-[var(--text-primary)] px-[8px] py-[2px] cursor-pointer select-none';
+                const unitCls = active ? 'text-white px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent' : 'text-[var(--text-primary)] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent';
+                targetDisplay.className = txtCls;
+                unitBtn.className = unitCls;
+                wrapDivider.style.opacity = active ? '' : '0';
+            }
+            updateTargetStyle();
 
-            // Edit row: [targetMinus] [targetPlus] — hidden by default
+            // Absolutely-positioned ± buttons on targetWrapper — no layout shift
+            targetWrapper.style.position = 'relative';
+
             const targetMinus = document.createElement('button');
             targetMinus.type = 'button';
-            targetMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            targetMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             targetMinus.textContent = '\u2212';
+            targetMinus.style.position = 'absolute';
+            targetMinus.style.right = '100%';
+            targetMinus.style.top = '50%';
+            targetMinus.style.transform = 'translateY(-50%)';
+            targetMinus.style.marginRight = '4px';
+            targetMinus.style.display = isPumpExp ? '' : 'none';
 
             const targetPlus = document.createElement('button');
             targetPlus.type = 'button';
-            targetPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            targetPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             targetPlus.textContent = '+';
+            targetPlus.style.position = 'absolute';
+            targetPlus.style.left = '100%';
+            targetPlus.style.top = '50%';
+            targetPlus.style.transform = 'translateY(-50%)';
+            targetPlus.style.marginLeft = '4px';
+            targetPlus.style.display = isPumpExp ? '' : 'none';
 
-            const pumpEditRow = document.createElement('div');
-            pumpEditRow.className = 'flex items-center gap-[8px]';
-            pumpEditRow.style.display = isPumpExp ? 'flex' : 'none';
-            pumpEditRow.appendChild(targetMinus);
-            pumpEditRow.appendChild(targetPlus);
+            targetWrapper.appendChild(targetMinus);
+            targetWrapper.appendChild(targetPlus);
+
+            // Display line: [targetWrapper] [rampText] [transBtn] — always visible, never moves
+            const pumpDisplayLine = document.createElement('div');
+            pumpDisplayLine.className = 'flex items-center gap-[8px]';
+            pumpDisplayLine.appendChild(targetWrapper);
+            pumpDisplayLine.appendChild(rampText);
+            pumpDisplayLine.appendChild(transBtn);
+
+            function collapsePumpSpinner() {
+                clearTimeout(pumpTimer);
+                expandedPumpSteps.delete(index);
+                targetMinus.style.display = 'none';
+                targetPlus.style.display = 'none';
+                transBtn.style.opacity = '';
+            }
+
+            function startPumpTimer() {
+                clearTimeout(pumpTimer);
+                pumpTimer = setTimeout(collapsePumpSpinner, 2000);
+            }
 
             transBtn.addEventListener('click', () => {
                 transValue = transValue === 'fast' ? 'smooth' : 'fast';
@@ -404,46 +488,73 @@ function renderStepCards() {
                 editorState.profile.steps[index].transition = transValue;
             });
 
+            let targetLongPressTimer = null;
+            let targetLongPressFired = false;
+
+            targetDisplay.addEventListener('pointerdown', () => {
+                if (!expandedPumpSteps.has(index)) return;
+                targetLongPressFired = false;
+                targetLongPressTimer = setTimeout(() => {
+                    targetLongPressFired = true;
+                    targetValue = 0;
+                    targetDisplay.textContent = '0';
+                    updateTargetStyle();
+                    if (isFlow) editorState.profile.steps[index].flow = 0;
+                    else editorState.profile.steps[index].pressure = 0;
+                    startPumpTimer();
+                }, 600);
+            });
+            targetDisplay.addEventListener('pointerup',     () => clearTimeout(targetLongPressTimer));
+            targetDisplay.addEventListener('pointerleave',  () => clearTimeout(targetLongPressTimer));
+            targetDisplay.addEventListener('pointercancel', () => clearTimeout(targetLongPressTimer));
+
             targetDisplay.addEventListener('click', () => {
+                if (targetLongPressFired) { targetLongPressFired = false; return; }
                 if (expandedPumpSteps.has(index)) {
-                    expandedPumpSteps.delete(index);
-                    pumpDisplayLine.appendChild(targetWrapper);
-                    pumpEditRow.style.display = 'none';
-                    transBtn.style.opacity = '';
+                    collapsePumpSpinner();
                 } else {
                     expandedPumpSteps.add(index);
-                    pumpEditRow.insertBefore(targetWrapper, targetPlus);
-                    pumpEditRow.style.display = 'flex';
+                    targetMinus.style.display = '';
+                    targetPlus.style.display = '';
                     transBtn.style.opacity = '0.3';
+                    startPumpTimer();
                 }
             });
 
             unitBtn.addEventListener('click', () => {
-                editorState.profile.steps[index].pump = isFlow ? 'pressure' : 'flow';
+                if (isFlow) {
+                    editorState.profile.steps[index].pump = 'pressure';
+                    if (!editorState.profile.steps[index].pressure)
+                        editorState.profile.steps[index].pressure = DEFAULT_STEP.pressure;
+                } else {
+                    editorState.profile.steps[index].pump = 'flow';
+                    if (!editorState.profile.steps[index].flow)
+                        editorState.profile.steps[index].flow = DEFAULT_STEP.flow;
+                }
                 renderStepCards();
             });
 
             targetMinus.addEventListener('click', () => {
                 targetValue = roundTo(clamp(targetValue - tStep, 0, targetMax), tStep);
                 targetDisplay.textContent = `${targetValue}`;
+                updateTargetStyle();
                 if (isFlow) editorState.profile.steps[index].flow = targetValue;
                 else editorState.profile.steps[index].pressure = targetValue;
+                startPumpTimer();
             });
 
             targetPlus.addEventListener('click', () => {
                 targetValue = roundTo(clamp(targetValue + tStep, 0, targetMax), tStep);
                 targetDisplay.textContent = `${targetValue}`;
+                updateTargetStyle();
                 if (isFlow) editorState.profile.steps[index].flow = targetValue;
                 else editorState.profile.steps[index].pressure = targetValue;
+                startPumpTimer();
             });
 
-            if (isPumpExp) {
-                transBtn.style.opacity = '0.3';
-                pumpEditRow.insertBefore(targetWrapper, targetPlus);
-            }
+            if (isPumpExp) transBtn.style.opacity = '0.3';
 
             pumpLine.appendChild(pumpDisplayLine);
-            pumpLine.appendChild(pumpEditRow);
 
             // ── Line 2: limiter ───────────────────────────────────────────────
             const limLine = document.createElement('div');
@@ -455,107 +566,157 @@ function renderStepCards() {
             const isLimExp = expandedLimSteps.has(index);
 
             let limValue = step.limiter?.value ?? 0;
+            let limTimer = null;
 
             const withText = document.createElement('span');
             withText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
-            withText.textContent = 'With';
+            withText.textContent = 'Limit to';
 
             const limDisplay = document.createElement('span');
-            limDisplay.className = 'font-bold text-[20px] text-[var(--mimoja-blue-v2)] cursor-pointer select-none';
             limDisplay.textContent = `${roundTo(limValue, lStep)}`;
 
+            const limDivider = document.createElement('span');
+            limDivider.className = 'w-[1px] h-[18px] bg-white opacity-40 shrink-0 self-center';
+
             const limUnitText = document.createElement('span');
-            limUnitText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
-            limUnitText.textContent = `${limUnit} limit`;
+            limUnitText.textContent = limUnit;
 
-            // Display line: [withText] [limDisplay] [limUnitText] — always visible
-            const limDisplayLine = document.createElement('div');
-            limDisplayLine.className = 'flex items-center gap-[8px]';
-            limDisplayLine.appendChild(withText);
-            limDisplayLine.appendChild(limDisplay);
-            limDisplayLine.appendChild(limUnitText);
+            const limWrapper = document.createElement('div');
+            limWrapper.className = 'flex items-center rounded-[8px] cursor-pointer';
+            limWrapper.appendChild(limDisplay);
+            limWrapper.appendChild(limDivider);
+            limWrapper.appendChild(limUnitText);
 
-            // Edit row: [limMinus] [limPlus] — hidden by default
+            function updateLimStyle() {
+                const active = limValue > 0;
+                limWrapper.style.background = active ? 'var(--button-primary-bg)' : 'var(--secondary-button-bg)';
+                const txtCls = active ? 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none' : 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none';
+                const unitCls = active ? 'text-white px-[8px] py-[2px] text-[20px] font-semibold select-none' : 'text-white px-[8px] py-[2px] text-[20px] font-semibold select-none';
+                limDisplay.className = txtCls;
+                limUnitText.className = unitCls;
+                limDivider.style.opacity = active ? '' : '0';
+            }
+            updateLimStyle();
+
+            // Absolutely-positioned ± buttons on limWrapper — no layout shift
+            limWrapper.style.position = 'relative';
+
             const limMinus = document.createElement('button');
             limMinus.type = 'button';
-            limMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            limMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             limMinus.textContent = '\u2212';
+            limMinus.style.position = 'absolute';
+            limMinus.style.right = '100%';
+            limMinus.style.top = '50%';
+            limMinus.style.transform = 'translateY(-50%)';
+            limMinus.style.marginRight = '4px';
+            limMinus.style.display = isLimExp ? '' : 'none';
 
             const limPlus = document.createElement('button');
             limPlus.type = 'button';
-            limPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+            limPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             limPlus.textContent = '+';
+            limPlus.style.position = 'absolute';
+            limPlus.style.left = '100%';
+            limPlus.style.top = '50%';
+            limPlus.style.transform = 'translateY(-50%)';
+            limPlus.style.marginLeft = '4px';
+            limPlus.style.display = isLimExp ? '' : 'none';
 
-            const limEditRow = document.createElement('div');
-            limEditRow.className = 'flex items-center gap-[8px]';
-            limEditRow.style.display = isLimExp ? 'flex' : 'none';
-            limEditRow.appendChild(limMinus);
-            limEditRow.appendChild(limPlus);
+            limWrapper.appendChild(limMinus);
+            limWrapper.appendChild(limPlus);
+
+            const limDisplayLine = document.createElement('div');
+            limDisplayLine.className = 'flex items-center gap-[8px]';
+            limDisplayLine.appendChild(withText);
+            limDisplayLine.appendChild(limWrapper);
+
+            function collapseLimSpinner() {
+                clearTimeout(limTimer);
+                expandedLimSteps.delete(index);
+                limMinus.style.display = 'none';
+                limPlus.style.display = 'none';
+                withText.style.opacity = '';
+            }
+
+            function startLimTimer() {
+                clearTimeout(limTimer);
+                limTimer = setTimeout(collapseLimSpinner, 2000);
+            }
+
+            let limLongPressTimer = null;
+            let limLongPressFired = false;
+
+            limDisplay.addEventListener('pointerdown', () => {
+                if (!expandedLimSteps.has(index)) return;
+                limLongPressFired = false;
+                limLongPressTimer = setTimeout(() => {
+                    limLongPressFired = true;
+                    limValue = 0;
+                    limDisplay.textContent = '0';
+                    updateLimStyle();
+                    if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: 0, range: 0.6 };
+                    else editorState.profile.steps[index].limiter.value = 0;
+                    startLimTimer();
+                }, 600);
+            });
+            limDisplay.addEventListener('pointerup',     () => clearTimeout(limLongPressTimer));
+            limDisplay.addEventListener('pointerleave',  () => clearTimeout(limLongPressTimer));
+            limDisplay.addEventListener('pointercancel', () => clearTimeout(limLongPressTimer));
 
             limDisplay.addEventListener('click', () => {
+                if (limLongPressFired) { limLongPressFired = false; return; }
                 if (expandedLimSteps.has(index)) {
-                    expandedLimSteps.delete(index);
-                    limDisplayLine.insertBefore(limDisplay, limUnitText);
-                    limEditRow.style.display = 'none';
-                    withText.style.opacity = '';
-                    limUnitText.style.opacity = '';
+                    collapseLimSpinner();
                 } else {
                     expandedLimSteps.add(index);
-                    limEditRow.insertBefore(limDisplay, limPlus);
-                    limEditRow.style.display = 'flex';
+                    limMinus.style.display = '';
+                    limPlus.style.display = '';
                     withText.style.opacity = '0.3';
-                    limUnitText.style.opacity = '0.3';
+                    startLimTimer();
                 }
             });
 
             limMinus.addEventListener('click', () => {
                 limValue = roundTo(clamp(limValue - lStep, 0, limMax), lStep);
                 limDisplay.textContent = `${limValue}`;
+                updateLimStyle();
                 if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: limValue, range: 0.6 };
                 else editorState.profile.steps[index].limiter.value = limValue;
+                startLimTimer();
             });
 
             limPlus.addEventListener('click', () => {
                 limValue = roundTo(clamp(limValue + lStep, 0, limMax), lStep);
                 limDisplay.textContent = `${limValue}`;
+                updateLimStyle();
                 if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: limValue, range: 0.6 };
                 else editorState.profile.steps[index].limiter.value = limValue;
+                startLimTimer();
             });
 
-            if (isLimExp) {
-                withText.style.opacity = '0.3';
-                limUnitText.style.opacity = '0.3';
-                limEditRow.insertBefore(limDisplay, limPlus);
-            }
+            if (isLimExp) withText.style.opacity = '0.3';
 
             limLine.appendChild(limDisplayLine);
-            limLine.appendChild(limEditRow);
 
             pCell.appendChild(pumpLine);
             pCell.appendChild(limLine);
         }
 
-        // Exit + Max combined row — two lines
         {
             const exitCell = mkCell(R.EXIT, col, 'flex flex-col justify-center px-[16px] py-[4px] gap-[6px] border-r border-b border-[#e8e8e8]');
 
-            // ── Line 1: exit condition ────────────────────────────────────────
             const exitLine = document.createElement('div');
             exitLine.className = 'flex flex-col gap-[4px]';
-
-            const EXIT_TYPES   = ['pressure', 'flow', 'weight', 'time', 'off'];
-            const EXIT_UNIT_MAP = { pressure: 'bar', flow: 'mL/s', weight: 'g', time: 'sec' };
-            const EXIT_STEP_MAP = { pressure: 0.1, flow: 0.1, weight: 0.5, time: 1 };
-            const EXIT_MAX_MAP  = { pressure: 16,  flow: 15,  weight: 500, time: 300 };
 
             const exitDef  = step.exit || { type: 'pressure', condition: 'over', value: 0 };
             let exitType   = exitDef.type || 'pressure';
             let exitCond   = exitDef.condition || 'over';
             let exitValue  = exitDef.value ?? 0;
+            let exitTimer = null;
 
-            const btnBase = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
             const btnGray = 'bg-gray-400 text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
-            const btnGrayFlash = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const btnGrayFlash = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
 
             const typeBtn = document.createElement('button');
             typeBtn.type = 'button';
@@ -573,46 +734,68 @@ function renderStepCards() {
             valueDisplay.className = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none whitespace-nowrap';
             valueDisplay.textContent = exitType !== 'off' ? `${exitValue} ${EXIT_UNIT_MAP[exitType]}` : '';
 
-            // Display line: [typeBtn] [condBtn] [valueDisplay] — always visible
+            const exitMinus = document.createElement('button');
+            exitMinus.type = 'button';
+            exitMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            exitMinus.textContent = '\u2212';
+            exitMinus.style.position = 'absolute';
+            exitMinus.style.right = '100%';
+            exitMinus.style.top = '50%';
+            exitMinus.style.transform = 'translateY(-50%)';
+            exitMinus.style.marginRight = '4px';
+            exitMinus.style.display = 'none';
+
+            const exitPlus = document.createElement('button');
+            exitPlus.type = 'button';
+            exitPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            exitPlus.textContent = '+';
+            exitPlus.style.position = 'absolute';
+            exitPlus.style.left = '100%';
+            exitPlus.style.top = '50%';
+            exitPlus.style.transform = 'translateY(-50%)';
+            exitPlus.style.marginLeft = '4px';
+            exitPlus.style.display = 'none';
+
+            // Wrap valueDisplay so ± buttons can be positioned relative to it
+            const valueWrapper = document.createElement('span');
+            valueWrapper.style.position = 'relative';
+            valueWrapper.style.display = 'inline-flex';
+            valueWrapper.appendChild(exitMinus);
+            valueWrapper.appendChild(valueDisplay);
+            valueWrapper.appendChild(exitPlus);
+
             const exitDisplayLine = document.createElement('div');
             exitDisplayLine.className = 'flex items-center gap-[8px]';
             exitDisplayLine.appendChild(typeBtn);
             exitDisplayLine.appendChild(condBtn);
-            exitDisplayLine.appendChild(valueDisplay);
+            exitDisplayLine.appendChild(valueWrapper);
 
-            // Edit row: [exitMinus] [exitPlus] — hidden by default
-            const exitMinus = document.createElement('button');
-            exitMinus.type = 'button';
-            exitMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
-            exitMinus.textContent = '\u2212';
+            function collapseExitSpinner() {
+                clearTimeout(exitTimer);
+                expandedExitSteps.delete(index);
+                exitMinus.style.display = 'none';
+                exitPlus.style.display = 'none';
+                typeBtn.style.opacity = '';
+                condBtn.style.opacity = '';
+            }
 
-            const exitPlus = document.createElement('button');
-            exitPlus.type = 'button';
-            exitPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
-            exitPlus.textContent = '+';
-
-            const exitEditRow = document.createElement('div');
-            exitEditRow.className = 'flex items-center gap-[8px]';
-            exitEditRow.style.display = isExitExpanded ? 'flex' : 'none';
-            exitEditRow.appendChild(exitMinus);
-            exitEditRow.appendChild(exitPlus);
+            function startExitTimer() {
+                clearTimeout(exitTimer);
+                exitTimer = setTimeout(collapseExitSpinner, 2000);
+            }
 
             function applyExitOffState() {
                 const isOff = exitType === 'off';
                 typeBtn.className = isOff ? btnGray : btnGrayFlash;
                 condBtn.style.display      = isOff ? 'none' : '';
-                valueDisplay.style.display = isOff ? 'none' : '';
+                valueWrapper.style.display = isOff ? 'none' : '';
                 if (isOff) {
-                    // Move valueDisplay back to displayLine and collapse
-                    if (!exitDisplayLine.contains(valueDisplay)) {
-                        exitDisplayLine.appendChild(valueDisplay);
-                    }
-                    exitEditRow.style.display = 'none';
+                    clearTimeout(exitTimer);
+                    exitMinus.style.display = 'none';
+                    exitPlus.style.display = 'none';
                     expandedExitSteps.delete(index);
                     typeBtn.style.opacity = '';
                     condBtn.style.opacity = '';
-                } else {
-                    exitEditRow.style.display = expandedExitSteps.has(index) ? 'flex' : 'none';
                 }
             }
             applyExitOffState();
@@ -633,19 +816,36 @@ function renderStepCards() {
                 else editorState.profile.steps[index].exit.condition = exitCond;
             });
 
+            let exitLongPressTimer = null;
+            let exitLongPressFired = false;
+
+            valueDisplay.addEventListener('pointerdown', () => {
+                if (!expandedExitSteps.has(index)) return;
+                exitLongPressFired = false;
+                exitLongPressTimer = setTimeout(() => {
+                    exitLongPressFired = true;
+                    exitValue = 0;
+                    valueDisplay.textContent = `0 ${EXIT_UNIT_MAP[exitType]}`;
+                    if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: 0 };
+                    else editorState.profile.steps[index].exit.value = 0;
+                    startExitTimer();
+                }, 600);
+            });
+            valueDisplay.addEventListener('pointerup',     () => clearTimeout(exitLongPressTimer));
+            valueDisplay.addEventListener('pointerleave',  () => clearTimeout(exitLongPressTimer));
+            valueDisplay.addEventListener('pointercancel', () => clearTimeout(exitLongPressTimer));
+
             valueDisplay.addEventListener('click', () => {
+                if (exitLongPressFired) { exitLongPressFired = false; return; }
                 if (expandedExitSteps.has(index)) {
-                    expandedExitSteps.delete(index);
-                    exitDisplayLine.appendChild(valueDisplay);
-                    exitEditRow.style.display = 'none';
-                    typeBtn.style.opacity = '';
-                    condBtn.style.opacity = '';
+                    collapseExitSpinner();
                 } else {
                     expandedExitSteps.add(index);
-                    exitEditRow.insertBefore(valueDisplay, exitPlus);
-                    exitEditRow.style.display = 'flex';
+                    exitMinus.style.display = '';
+                    exitPlus.style.display = '';
                     typeBtn.style.opacity = '0.3';
                     condBtn.style.opacity = '0.3';
+                    startExitTimer();
                 }
             });
 
@@ -654,6 +854,7 @@ function renderStepCards() {
                 valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
                 if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
                 else editorState.profile.steps[index].exit.value = exitValue;
+                startExitTimer();
             });
 
             exitPlus.addEventListener('click', () => {
@@ -661,20 +862,30 @@ function renderStepCards() {
                 valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
                 if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
                 else editorState.profile.steps[index].exit.value = exitValue;
+                startExitTimer();
             });
 
             if (isExitExpanded) {
                 typeBtn.style.opacity = '0.3';
                 condBtn.style.opacity = '0.3';
-                exitEditRow.insertBefore(valueDisplay, exitPlus);
+                exitMinus.style.display = '';
+                exitPlus.style.display = '';
             }
 
             exitLine.appendChild(exitDisplayLine);
-            exitLine.appendChild(exitEditRow);
 
-            // ── Line 2: max values ────────────────────────────────────────────
-            const maxLine = document.createElement('div');
-            maxLine.className = 'flex items-center gap-[8px]';
+            exitCell.appendChild(exitLine);
+        }
+
+        {
+            const maxCell = mkCell(R.MAX, col, 'flex flex-col justify-center px-[16px] py-[4px] border-r border-b border-[#e8e8e8] gap-[6px]');
+
+            const maxTopRow = document.createElement('div');
+            maxTopRow.className = 'flex items-center gap-[8px] flex-wrap';
+
+            const maxExtrasRow = document.createElement('div');
+            maxExtrasRow.className = 'flex items-center gap-[8px]';
+            maxExtrasRow.style.display = 'none';
 
             const MAX_FIELDS = [
                 { key: 'weight',  unit: 'g',   fStep: 1, fMax: 500 },
@@ -683,133 +894,219 @@ function renderStepCards() {
             ];
 
             const fieldRefs = [];
+            let maxTimer = null;
 
             const blueDisplayClass = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
-            const grayDisplayClass = 'bg-[var(--preset-value-color-disabled)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const grayDisplayClass = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
 
             const maxPlaceholder = document.createElement('span');
             maxPlaceholder.className = grayDisplayClass;
-            maxPlaceholder.textContent = 'Max';
-            maxLine.appendChild(maxPlaceholder);
+            maxPlaceholder.textContent = 'None';
+            maxTopRow.appendChild(maxPlaceholder);
+
+            function collapseMaxSpinner() {
+                clearTimeout(maxTimer);
+                expandedMaxSteps.delete(index);
+                updateMaxSectionVisibility();
+            }
+
+            function startMaxTimer() {
+                clearTimeout(maxTimer);
+                maxTimer = setTimeout(collapseMaxSpinner, 2000);
+            }
 
             function updateMaxSectionVisibility() {
                 const activeKey = expandedMaxSteps.get(index) ?? null;
                 const nonZeroCount = fieldRefs.filter(r => r.getValue() > 0).length;
                 const allZero = nonZeroCount === 0;
 
-                maxPlaceholder.style.display = (allZero && activeKey === null) ? '' : 'none';
-
+                // Update blue/gray class
                 fieldRefs.forEach(ref => {
-                    const show = activeKey !== null || ref.getValue() > 0;
-                    ref.section.style.display = show ? '' : 'none';
-
-                    if (activeKey === ref.key) {
-                        if (!ref.sectionEditRow.contains(ref.display)) {
-                            ref.sectionEditRow.insertBefore(ref.display, ref.plusBtn);
-                        }
-                        ref.sectionEditRow.style.display = 'flex';
+                    let isBlue;
+                    if (nonZeroCount === 0) {
+                        isBlue = false;
+                    } else if (nonZeroCount === 1) {
+                        isBlue = ref.getValue() > 0;
                     } else {
-                        if (!ref.sectionDisplayLine.contains(ref.display)) {
-                            ref.sectionDisplayLine.appendChild(ref.display);
-                        }
-                        ref.sectionEditRow.style.display = 'none';
+                        const weightVal = fieldRefs.find(r => r.key === 'weight')?.getValue() ?? 0;
+                        const secsVal   = fieldRefs.find(r => r.key === 'seconds')?.getValue() ?? 0;
+                        if (weightVal > 0)    isBlue = ref.key === 'weight';
+                        else if (secsVal > 0) isBlue = ref.key === 'seconds';
+                        else                  isBlue = ref.key === 'volume';
                     }
-
-                    const isBlue = nonZeroCount === 1 ? ref.getValue() > 0 : ref.key === 'weight';
                     ref.display.className = isBlue ? blueDisplayClass : grayDisplayClass;
                 });
+
+                // Reset section positioning before rebuild
+                fieldRefs.forEach(ref => {
+                    ref.section.style.position = '';
+                    ref.section.style.top = '';
+                    ref.section.style.bottom = '';
+                    ref.section.style.left = '';
+                    ref.section.style.transform = '';
+                    ref.section.style.whiteSpace = '';
+                    ref.section.style.marginTop = '';
+                    ref.section.style.marginBottom = '';
+                });
+
+                maxTopRow.innerHTML = '';
+                maxExtrasRow.style.display = 'none';
+                maxExtrasRow.innerHTML = '';
+
+                if (activeKey === null) {
+                    // Collapsed: horizontal row, non-zero only (or placeholder)
+                    maxTopRow.className = 'flex items-center gap-[8px]';
+                    if (allZero) {
+                        maxTopRow.appendChild(maxPlaceholder);
+                    } else {
+                        fieldRefs.forEach(ref => {
+                            ref.minusBtn.style.display = 'none';
+                            ref.plusBtn.style.display  = 'none';
+                            if (ref.getValue() > 0) maxTopRow.appendChild(ref.section);
+                        });
+                    }
+                } else {
+                    // Edit: active pill stays in flow (no horizontal shift).
+                    // Prev floats above via absolute, next floats below — both anchored to curr.section.
+                    maxTopRow.className = 'flex items-center gap-[8px]';
+                    const activeIdx = fieldRefs.findIndex(r => r.key === activeKey);
+                    const n = fieldRefs.length;
+                    const prev = fieldRefs[(activeIdx - 1 + n) % n];
+                    const curr = fieldRefs[activeIdx];
+                    const next = fieldRefs[(activeIdx + 1) % n];
+
+                    fieldRefs.forEach(ref => {
+                        ref.minusBtn.style.display = ref.key === activeKey ? '' : 'none';
+                        ref.plusBtn.style.display  = ref.key === activeKey ? '' : 'none';
+                    });
+
+                    // curr stays in normal flow, centered in container
+                    maxTopRow.className = 'flex items-center justify-center gap-[8px]';
+                    curr.section.style.position = 'relative';
+                    maxTopRow.appendChild(curr.section);
+
+                    // prev floats above curr, centered over it
+                    prev.section.style.position = 'absolute';
+                    prev.section.style.bottom = '100%';
+                    prev.section.style.left = '50%';
+                    prev.section.style.transform = 'translateX(-50%)';
+                    prev.section.style.marginBottom = '6px';
+                    prev.section.style.whiteSpace = 'nowrap';
+                    curr.section.appendChild(prev.section);
+
+                    // next floats below curr, centered over it
+                    next.section.style.position = 'absolute';
+                    next.section.style.top = '100%';
+                    next.section.style.left = '50%';
+                    next.section.style.transform = 'translateX(-50%)';
+                    next.section.style.marginTop = '6px';
+                    next.section.style.whiteSpace = 'nowrap';
+                    curr.section.appendChild(next.section);
+                }
             }
 
             maxPlaceholder.addEventListener('click', () => {
                 expandedMaxSteps.set(index, 'weight');
                 updateMaxSectionVisibility();
-                fieldRefs.forEach(ref => {
-                    ref.section.style.opacity = ref.key !== 'weight' ? '0.3' : '';
-                });
+                startMaxTimer();
             });
 
             MAX_FIELDS.forEach(({ key, unit, fStep, fMax }) => {
-                const section = document.createElement('div');
-                section.className = 'flex flex-col gap-[4px]';
-
                 const isThisExpanded = (expandedMaxSteps.get(index) ?? null) === key;
                 let fieldValue = step[key] || 0;
 
                 const display = document.createElement('span');
                 display.className = grayDisplayClass;
                 display.textContent = `${fieldValue} ${unit}`;
+                display.style.position = 'relative';
 
-                // Display line: [display] only
-                const sectionDisplayLine = document.createElement('div');
-                sectionDisplayLine.className = 'flex items-center';
-                sectionDisplayLine.appendChild(display);
-
-                // Edit row: [minusBtn] [plusBtn] — hidden by default
                 const minusBtn = document.createElement('button');
                 minusBtn.type = 'button';
-                minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+                minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
                 minusBtn.textContent = '\u2212';
+                minusBtn.style.position = 'absolute';
+                minusBtn.style.right = '100%';
+                minusBtn.style.top = '50%';
+                minusBtn.style.transform = 'translateY(-50%)';
+                minusBtn.style.marginRight = '4px';
+                minusBtn.style.display = isThisExpanded ? '' : 'none';
 
                 const plusBtn = document.createElement('button');
                 plusBtn.type = 'button';
-                plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)]';
+                plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
                 plusBtn.textContent = '+';
+                plusBtn.style.position = 'absolute';
+                plusBtn.style.left = '100%';
+                plusBtn.style.top = '50%';
+                plusBtn.style.transform = 'translateY(-50%)';
+                plusBtn.style.marginLeft = '4px';
+                plusBtn.style.display = isThisExpanded ? '' : 'none';
 
-                const sectionEditRow = document.createElement('div');
-                sectionEditRow.className = 'flex items-center gap-[8px]';
-                sectionEditRow.style.display = isThisExpanded ? 'flex' : 'none';
-                sectionEditRow.appendChild(minusBtn);
-                sectionEditRow.appendChild(plusBtn);
+                display.appendChild(minusBtn);
+                display.appendChild(plusBtn);
 
-                fieldRefs.push({ key, minusBtn, plusBtn, display, section, sectionDisplayLine, sectionEditRow, getValue: () => fieldValue });
+                const section = document.createElement('span');
+                section.appendChild(display);
 
-                display.addEventListener('click', () => {
-                    const current = expandedMaxSteps.get(index) ?? null;
-                    fieldRefs.forEach(ref => {
-                        ref.section.style.display = '';
-                        ref.section.style.opacity = '';
-                    });
-                    if (current === key) {
-                        expandedMaxSteps.delete(index);
+                fieldRefs.push({ key, minusBtn, plusBtn, display, section, getValue: () => fieldValue });
+
+                let longPressTimer = null;
+                let longPressFired = false;
+
+                display.addEventListener('pointerdown', (e) => {
+                    if (e.target === minusBtn || e.target === plusBtn) return;
+                    if (expandedMaxSteps.get(index) !== key) return;
+                    longPressFired = false;
+                    longPressTimer = setTimeout(() => {
+                        longPressFired = true;
+                        fieldValue = 0;
+                        display.childNodes[0].textContent = `0 ${unit}`;
+                        editorState.profile.steps[index][key] = 0;
                         updateMaxSectionVisibility();
+                        startMaxTimer();
+                    }, 600);
+                });
+                display.addEventListener('pointerup',     () => clearTimeout(longPressTimer));
+                display.addEventListener('pointerleave',  () => clearTimeout(longPressTimer));
+                display.addEventListener('pointercancel', () => clearTimeout(longPressTimer));
+
+                display.addEventListener('click', (e) => {
+                    if (e.target === minusBtn || e.target === plusBtn) return;
+                    if (longPressFired) { longPressFired = false; return; }
+                    const current = expandedMaxSteps.get(index) ?? null;
+                    if (current === key) {
+                        collapseMaxSpinner();
                     } else {
                         expandedMaxSteps.set(index, key);
-                        fieldRefs.forEach(ref => {
-                            if (ref.key !== key) ref.section.style.opacity = '0.3';
-                        });
                         updateMaxSectionVisibility();
+                        startMaxTimer();
                     }
                 });
 
-                minusBtn.addEventListener('click', () => {
+                minusBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     fieldValue = roundTo(clamp(fieldValue - fStep, 0, fMax), fStep);
-                    display.textContent = `${fieldValue} ${unit}`;
+                    display.childNodes[0].textContent = `${fieldValue} ${unit}`;
                     editorState.profile.steps[index][key] = fieldValue;
                     updateMaxSectionVisibility();
+                    startMaxTimer();
                 });
 
-                plusBtn.addEventListener('click', () => {
+                plusBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     fieldValue = roundTo(clamp(fieldValue + fStep, 0, fMax), fStep);
-                    display.textContent = `${fieldValue} ${unit}`;
+                    display.childNodes[0].textContent = `${fieldValue} ${unit}`;
                     editorState.profile.steps[index][key] = fieldValue;
                     updateMaxSectionVisibility();
+                    startMaxTimer();
                 });
 
-                section.appendChild(sectionDisplayLine);
-                section.appendChild(sectionEditRow);
-                maxLine.appendChild(section);
             });
 
-            const initialMax = expandedMaxSteps.get(index) ?? null;
-            if (initialMax) {
-                fieldRefs.forEach(ref => {
-                    if (ref.key !== initialMax) ref.section.style.opacity = '0.3';
-                });
-            }
             updateMaxSectionVisibility();
 
-            exitCell.appendChild(exitLine);
-            exitCell.appendChild(maxLine);
+            maxCell.appendChild(maxTopRow);
+            maxCell.appendChild(maxExtrasRow);
         }
 
         // Footer: delete + insert
@@ -907,93 +1204,313 @@ function renderSettingsTab() {
 
 // ─── Review Tab ─────────────────────────────────────────────────────────────
 
-function describeStep(step, _index) {
-    const b = (text) => `<span class="review-value font-semibold text-[var(--button-primary-bg)] cursor-pointer">${text}</span>`;
-    const lines = [];
-    const isFlow = step.pump !== 'pressure';
-    const transition = step.transition === 'smooth' ? 'smoothly' : 'quickly';
-    const sensor = step.sensor === 'water' ? 'Water' : 'Coffee';
+function describeStep(step, index) {
+    const PROSE_CLASS = 'text-[20px] text-[#121212] select-none';
+    const PILL_ACTIVE   = 'text-[var(--button-primary-bg)] text-[20px] font-semibold cursor-pointer select-none min-w-[80px] inline-flex justify-center underline decoration-dashed underline-offset-[3px] px-[4px] rounded-[4px]';
+    const PILL_INACTIVE = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none min-w-[80px] inline-flex justify-center';
+    const TOGGLE_CLASS  = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+    const BTN_CLASS     = 'bg-[#ededed] rounded-[12px] w-[40px] h-[40px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
 
-    // Temperature
-    lines.push(`Set ${b(sensor)} temperature to ${b(`${step.temperature ?? 93} °C`)}`);
-
-    // Pump target
-    if (isFlow) {
-        lines.push(`Pour ${b(transition)} at a rate of ${b(`${step.flow ?? 0} ml/s`)}`);
-    } else {
-        lines.push(`${transition === 'quickly' ? 'Pressurize' : 'Build pressure'} ${b(transition)} to ${b(`${step.pressure ?? 0} bar`)}`);
+    function makeProseSpan(text) {
+        const span = document.createElement('span');
+        span.className = PROSE_CLASS;
+        span.textContent = text;
+        return span;
     }
 
-    // Duration / volume limit
-    const secVal = step.seconds ?? 0;
-    const volVal = step.volume ?? 0;
-    const wgtVal = step.weight ?? 0;
-    const parts = [];
-    if (wgtVal > 0) parts.push(b(`${wgtVal} g`));
-    if (secVal > 0) parts.push(b(`${secVal} sec`));
-    if (volVal > 0) parts.push(b(`${volVal} ml`));
-    if (parts.length) lines.push(`For a maximum of ${parts.join(' or ')}`);
+    function makeToggle(initialText, onClick) {
+        const span = document.createElement('span');
+        span.className = TOGGLE_CLASS;
+        span.textContent = initialText;
+        span.addEventListener('click', () => { onClick(span); });
+        return span;
+    }
 
-    // Exit condition
-    if (step.exit?.value !== undefined && step.exit.value !== 0 && step.exit.type !== 'off') {
-        const exitType = step.exit.type ?? 'pressure';
-        const exitCond = step.exit.condition === 'under' ? 'under' : 'over';
-        const exitUnit = exitType === 'flow' ? 'ml/s' : exitType === 'pressure' ? 'bar' : exitType === 'weight' ? 'g' : 'sec';
-        lines.push(`Move on if ${b(exitType)} is ${b(exitCond)} ${b(`${step.exit.value} ${exitUnit}`)}`);
+    function makeNumericSpinner(initialValue, step, unit, min, max, onCommit) {
+        let value = initialValue;
+        let collapseTimer = null;
+
+        const wrapper = document.createElement('span');
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.position = 'relative';
+
+        const valuePill = document.createElement('span');
+        valuePill.className = value > 0 ? PILL_ACTIVE : PILL_INACTIVE;
+        valuePill.textContent = `${roundTo(value, step)} ${unit}`;
+        valuePill.addEventListener('mouseenter', () => { if (value > 0) valuePill.style.backgroundColor = 'rgba(3,88,207,0.08)'; });
+        valuePill.addEventListener('mouseleave', () => { valuePill.style.backgroundColor = ''; });
+
+        const minusBtn = document.createElement('span');
+        minusBtn.className = BTN_CLASS;
+        minusBtn.textContent = '\u2212';
+        minusBtn.style.position = 'absolute';
+        minusBtn.style.right = '100%';
+        minusBtn.style.top = '50%';
+        minusBtn.style.transform = 'translateY(-50%)';
+        minusBtn.style.marginRight = '4px';
+
+        const plusBtn = document.createElement('span');
+        plusBtn.className = BTN_CLASS;
+        plusBtn.textContent = '+';
+        plusBtn.style.position = 'absolute';
+        plusBtn.style.left = '100%';
+        plusBtn.style.top = '50%';
+        plusBtn.style.transform = 'translateY(-50%)';
+        plusBtn.style.marginLeft = '4px';
+
+        function hideBtns() {
+            minusBtn.style.display = 'none';
+            plusBtn.style.display = 'none';
+        }
+
+        function showBtns() {
+            minusBtn.style.display = '';
+            plusBtn.style.display = '';
+        }
+
+        function updatePill() {
+            valuePill.textContent = `${roundTo(value, step)} ${unit}`;
+            valuePill.className = value > 0 ? PILL_ACTIVE : PILL_INACTIVE;
+        }
+
+        function collapse() {
+            clearTimeout(collapseTimer);
+            hideBtns();
+            expandedReviewField = null;
+        }
+
+        function resetTimer() {
+            clearTimeout(collapseTimer);
+            collapseTimer = setTimeout(collapse, 2000);
+        }
+
+        function expand() {
+            if (expandedReviewField) expandedReviewField.collapseFunc();
+            showBtns();
+            expandedReviewField = { collapseFunc: collapse };
+            resetTimer();
+        }
+
+        // Click on value pill to expand/collapse
+        let longPressTimer = null;
+        let longPressFired = false;
+
+        valuePill.addEventListener('pointerdown', () => {
+            if (!expandedReviewField || expandedReviewField.collapseFunc !== collapse) return;
+            longPressFired = false;
+            longPressTimer = setTimeout(() => {
+                longPressFired = true;
+                value = 0;
+                updatePill();
+                onCommit(0);
+                resetTimer();
+            }, 600);
+        });
+        valuePill.addEventListener('pointerup', () => clearTimeout(longPressTimer));
+        valuePill.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
+        valuePill.addEventListener('pointercancel', () => clearTimeout(longPressTimer));
+
+        valuePill.addEventListener('click', () => {
+            if (longPressFired) { longPressFired = false; return; }
+            if (expandedReviewField && expandedReviewField.collapseFunc === collapse) {
+                collapse();
+            } else {
+                expand();
+            }
+        });
+
+        minusBtn.addEventListener('click', () => {
+            value = roundTo(clamp(value - step, min, max), step);
+            updatePill();
+            onCommit(value);
+            resetTimer();
+        });
+
+        plusBtn.addEventListener('click', () => {
+            value = roundTo(clamp(value + step, min, max), step);
+            updatePill();
+            onCommit(value);
+            resetTimer();
+        });
+
+        // Always render all three nodes; ± hidden until expanded
+        wrapper.appendChild(minusBtn);
+        wrapper.appendChild(valuePill);
+        wrapper.appendChild(plusBtn);
+        hideBtns();
+
+        return wrapper;
+    }
+
+    function makeLine(children) {
+        const span = document.createElement('span');
+        span.className = 'inline-flex items-center gap-[6px]';
+        for (const child of children) {
+            if (typeof child === 'string') {
+                span.appendChild(makeProseSpan(child));
+            } else {
+                span.appendChild(child);
+            }
+        }
+        return span;
+    }
+
+    const lines = [];
+    const isFlow = step.pump !== 'pressure';
+
+    // Line 1 — Temperature + sensor
+    {
+        let sensorValue = step.sensor || 'coffee';
+        const sensorToggle = makeToggle(
+            sensorValue === 'water' ? 'Water' : 'Coffee',
+            (span) => {
+                sensorValue = sensorValue === 'coffee' ? 'water' : 'coffee';
+                span.textContent = sensorValue === 'coffee' ? 'Coffee' : 'Water';
+                editorState.profile.steps[index].sensor = sensorValue;
+                renderReviewGraph();
+            }
+        );
+
+        const tempSpinner = makeNumericSpinner(
+            step.temperature ?? 93, 0.5, '\u00b0C', 0, 110,
+            (val) => { editorState.profile.steps[index].temperature = val; renderReviewGraph(); }
+        );
+
+        lines.push(makeLine([sensorToggle, 'temperature to', tempSpinner]));
+    }
+
+    // Line 2 — Pump target
+    {
+        let transValue = step.transition || 'fast';
+        const transToggle = makeToggle(
+            transValue === 'fast' ? 'Quickly' : 'Slowly',
+            (span) => {
+                transValue = transValue === 'fast' ? 'smooth' : 'fast';
+                span.textContent = transValue === 'fast' ? 'Quickly' : 'Slowly';
+                editorState.profile.steps[index].transition = transValue;
+                renderReviewGraph();
+            }
+        );
+
+        if (isFlow) {
+            const flowSpinner = makeNumericSpinner(
+                step.flow ?? 0, 0.1, 'mL/s', 0, 15,
+                (val) => { editorState.profile.steps[index].flow = val; renderReviewGraph(); }
+            );
+            lines.push(makeLine(['Ramp', transToggle, 'to a rate of', flowSpinner]));
+        } else {
+            const pressureSpinner = makeNumericSpinner(
+                step.pressure ?? 0, 0.1, 'bar', 0, 16,
+                (val) => { editorState.profile.steps[index].pressure = val; renderReviewGraph(); }
+            );
+            lines.push(makeLine(['Ramp', transToggle, 'to', pressureSpinner]));
+        }
+    }
+
+    // Line 3 — Limiter (only if non-zero)
+    {
+        const limValue = step.limiter?.value ?? 0;
+        const limUnit  = isFlow ? 'bar' : 'mL/s';
+        const limMax   = isFlow ? 16 : 15;
+        if (limValue > 0) {
+            const limSpinner = makeNumericSpinner(
+                limValue, 0.1, limUnit, 0, limMax,
+                (val) => {
+                    if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: val, range: 0.6 };
+                    else editorState.profile.steps[index].limiter.value = val;
+                    renderReviewGraph();
+                }
+            );
+            lines.push(makeLine(['Limit to', limSpinner]));
+        }
+    }
+
+    // Line 4 — Max duration/volume/weight (only if at least one non-zero)
+    {
+        const secVal = step.seconds ?? 0;
+        const volVal = step.volume ?? 0;
+        const wgtVal = step.weight ?? 0;
+        const parts = [];
+
+        if (wgtVal > 0) {
+            parts.push(makeNumericSpinner(wgtVal, 1, 'g', 0, 500,
+                (val) => { editorState.profile.steps[index].weight = val; renderReviewGraph(); }
+            ));
+        }
+        if (secVal > 0) {
+            parts.push(makeNumericSpinner(secVal, 1, 'sec', 0, 300,
+                (val) => { editorState.profile.steps[index].seconds = val; renderReviewGraph(); }
+            ));
+        }
+        if (volVal > 0) {
+            parts.push(makeNumericSpinner(volVal, 1, 'ml', 0, 500,
+                (val) => { editorState.profile.steps[index].volume = val; renderReviewGraph(); }
+            ));
+        }
+
+        if (parts.length) {
+            const children = ['For a maximum of'];
+            parts.forEach((p, i) => {
+                if (i > 0) children.push('or');
+                children.push(p);
+            });
+            lines.push(makeLine(children));
+        }
+    }
+
+    // Line 4 — Exit condition
+    {
+        const exitDef = step.exit || { type: 'pressure', condition: 'over', value: 0 };
+        let exitType = exitDef.type || 'pressure';
+        let exitCond = exitDef.condition || 'over';
+        let exitValue = exitDef.value ?? 0;
+
+        if (exitType !== 'off' && exitValue !== 0) {
+            const exitTypeToggle = makeToggle(
+                exitType.charAt(0).toUpperCase() + exitType.slice(1),
+                (span) => {
+                    const nonOff = EXIT_TYPES.filter(t => t !== 'off');
+                    const idx = nonOff.indexOf(exitType);
+                    exitType = nonOff[(idx + 1) % nonOff.length];
+                    span.textContent = exitType.charAt(0).toUpperCase() + exitType.slice(1);
+                    if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                    else editorState.profile.steps[index].exit.type = exitType;
+                    // Update the spinner's unit display — rebuild is simplest via re-render
+                    renderReviewGraph();
+                }
+            );
+
+            const exitCondToggle = makeToggle(
+                exitCond.charAt(0).toUpperCase() + exitCond.slice(1),
+                (span) => {
+                    exitCond = exitCond === 'over' ? 'under' : 'over';
+                    span.textContent = exitCond.charAt(0).toUpperCase() + exitCond.slice(1);
+                    if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                    else editorState.profile.steps[index].exit.condition = exitCond;
+                    renderReviewGraph();
+                }
+            );
+
+            const exitSpinner = makeNumericSpinner(
+                exitValue, EXIT_STEP_MAP[exitType], EXIT_UNIT_MAP[exitType], 0, EXIT_MAX_MAP[exitType],
+                (val) => {
+                    exitValue = val;
+                    if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: val };
+                    else editorState.profile.steps[index].exit.value = val;
+                    renderReviewGraph();
+                }
+            );
+
+            lines.push(makeLine(['Move on if', exitTypeToggle, 'is', exitCondToggle, exitSpinner]));
+        }
     }
 
     return lines;
 }
 
-function renderReviewTab() {
+function renderReviewGraph() {
     const profile = editorState.profile;
-    if (!profile) return;
-
-    // ── Steps list ──────────────────────────────────────────────────────────
-    const stepsList = document.getElementById('review-steps-list');
-    if (stepsList) {
-        stepsList.innerHTML = '';
-        (profile.steps || []).forEach((step, i) => {
-            const row = document.createElement('div');
-            row.className = 'flex gap-[12px] items-start text-[#121212]';
-
-            const nameEl = document.createElement('p');
-            nameEl.className = 'font-semibold text-[20px] w-[160px] shrink-0 leading-[1.3]';
-            nameEl.textContent = `${i + 1}: ${step.name || 'Step'}`;
-            row.appendChild(nameEl);
-
-            const bulletCol = document.createElement('ul');
-            bulletCol.className = 'flex flex-col gap-[3px] list-disc list-inside text-[20px]';
-            for (const line of describeStep(step, i)) {
-                const li = document.createElement('li');
-                li.innerHTML = line;
-                bulletCol.appendChild(li);
-            }
-            row.appendChild(bulletCol);
-            stepsList.appendChild(row);
-        });
-        stepsList.addEventListener('click', (e) => {
-            if (e.target.classList.contains('review-value')) setActiveTab(0);
-        });
-    }
-
-    // ── Settings list ───────────────────────────────────────────────────────
-    const settingsList = document.getElementById('review-settings-list');
-    if (settingsList) {
-        settingsList.innerHTML = '';
-        const s = (label, val) => {
-            const li = document.createElement('li');
-            li.innerHTML = `${label} <span class="font-semibold text-[var(--button-primary-bg)]">${val}</span>`;
-            settingsList.appendChild(li);
-        };
-        if (profile.tank_temperature != null) s('Preheat water tank at', `${profile.tank_temperature} °C`);
-        if (profile.target_volume_count_start != null) s('Track water volume after step', profile.target_volume_count_start);
-        if (profile.target_weight != null && profile.target_weight > 0) s('Stop at weight', `${profile.target_weight} g`);
-        if (profile.target_volume != null && profile.target_volume > 0) s('Stop at volume', `${profile.target_volume} ml`);
-        if (profile.beverage_type) s('Beverage type', profile.beverage_type);
-    }
-
-    // ── Graph preview ───────────────────────────────────────────────────────
     const graphDiv = document.getElementById('review-graph');
     if (!graphDiv || typeof Plotly === 'undefined') return;
 
@@ -1036,7 +1553,7 @@ function renderReviewTab() {
     const traces = [
         { x: pressureX, y: pressureY, name: 'Pressure', mode: 'lines', line: { color: '#17c29a' }, hoverinfo: 'name' },
         { x: flowX,     y: flowY,     name: 'Flow',     mode: 'lines', line: { color: '#0358cf' }, hoverinfo: 'name' },
-        { x: tempX,     y: tempY,     name: '°C',       mode: 'lines', line: { color: '#ff97a1' }, hoverinfo: 'name' },
+        { x: tempX,     y: tempY,     name: '\u00b0C',  mode: 'lines', line: { color: '#ff97a1' }, hoverinfo: 'name' },
     ];
 
     const layout = {
@@ -1052,6 +1569,58 @@ function renderReviewTab() {
     };
 
     Plotly.react(graphDiv, traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function renderReviewTab() {
+    // Collapse any open review spinner since DOM is being rebuilt
+    if (expandedReviewField) { expandedReviewField.collapseFunc(); expandedReviewField = null; }
+
+    const profile = editorState.profile;
+    if (!profile) return;
+
+    // ── Steps list ──────────────────────────────────────────────────────────
+    const stepsList = document.getElementById('review-steps-list');
+    if (stepsList) {
+        stepsList.innerHTML = '';
+        (profile.steps || []).forEach((step, i) => {
+            const row = document.createElement('div');
+            row.className = 'flex flex-col gap-[6px] text-[#121212]';
+
+            const nameEl = document.createElement('p');
+            nameEl.className = 'font-semibold text-[20px] leading-[1.3]';
+            nameEl.textContent = `${i + 1}: ${step.name || 'Step'}`;
+            row.appendChild(nameEl);
+
+            const bulletCol = document.createElement('ul');
+            bulletCol.className = 'flex flex-col gap-[6px] list-disc list-inside text-[20px]';
+            for (const lineEl of describeStep(step, i)) {
+                const li = document.createElement('li');
+                li.appendChild(lineEl);
+                bulletCol.appendChild(li);
+            }
+            row.appendChild(bulletCol);
+            stepsList.appendChild(row);
+        });
+    }
+
+    // ── Settings list ───────────────────────────────────────────────────────
+    const settingsList = document.getElementById('review-settings-list');
+    if (settingsList) {
+        settingsList.innerHTML = '';
+        const s = (label, val) => {
+            const li = document.createElement('li');
+            li.innerHTML = `${label} <span class="font-semibold text-[var(--button-primary-bg)]">${val}</span>`;
+            settingsList.appendChild(li);
+        };
+        if (profile.tank_temperature != null) s('Preheat water tank at', `${profile.tank_temperature} \u00b0C`);
+        if (profile.target_volume_count_start != null) s('Track water volume after step', profile.target_volume_count_start);
+        if (profile.target_weight != null && profile.target_weight > 0) s('Stop at weight', `${profile.target_weight} g`);
+        if (profile.target_volume != null && profile.target_volume > 0) s('Stop at volume', `${profile.target_volume} ml`);
+        if (profile.beverage_type) s('Beverage type', profile.beverage_type);
+    }
+
+    // ── Graph preview ───────────────────────────────────────────────────────
+    renderReviewGraph();
 }
 
 // ─── Tab Management ─────────────────────────────────────────────────────────
@@ -1217,6 +1786,7 @@ export async function initializeProfileEditor() {
     expandedLimSteps.clear();
     expandedMaxSteps.clear();
     expandedExitSteps.clear();
+    expandedReviewField = null;
 
     // 3. Populate title
     const titleDisplay = document.getElementById('editor-title-display');

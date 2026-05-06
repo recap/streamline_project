@@ -684,10 +684,21 @@ paths:
       responses:
         "200":
           description: Paginated list of shots (without measurements)
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: |
+                Strong entity tag derived from the response body. Echo back as
+                `If-None-Match` on subsequent requests for conditional GET.
+                Tag is keyed on the full response (filters + pagination), so
+                the same query produces the same tag until shots change.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaginatedShots"
+        "304":
+          description: Not Modified — client's `If-None-Match` matched the current ETag.
   /api/v1/shots/ids:
     get:
       summary: Get a list of identifiers of all the shots
@@ -886,12 +897,21 @@ paths:
       responses:
         "200":
           description: Array of beans
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: |
+                Strong entity tag derived from the response body. Echo back as
+                `If-None-Match` on subsequent requests for conditional GET.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/Bean"
+        "304":
+          description: Not Modified — client's `If-None-Match` matched the current ETag.
         "500":
           description: Internal Server Error
     post:
@@ -1127,12 +1147,21 @@ paths:
       responses:
         "200":
           description: Array of batches
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: |
+                Strong entity tag derived from the response body. Echo back as
+                `If-None-Match` on subsequent requests for conditional GET.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/BeanBatch"
+        "304":
+          description: Not Modified — client's `If-None-Match` matched the current ETag.
         "500":
           description: Internal Server Error
     post:
@@ -1372,12 +1401,21 @@ paths:
       responses:
         "200":
           description: Array of grinders
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: |
+                Strong entity tag derived from the response body. Echo back as
+                `If-None-Match` on subsequent requests for conditional GET.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/Grinder"
+        "304":
+          description: Not Modified — client's `If-None-Match` matched the current ETag.
         "500":
           description: Internal Server Error
     post:
@@ -1903,12 +1941,21 @@ paths:
       responses:
         "200":
           description: Array of profile records
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: |
+                Strong entity tag derived from the response body. Echo back as
+                `If-None-Match` on subsequent requests for conditional GET.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProfileRecord'
+        "304":
+          description: Not Modified — client's `If-None-Match` matched the current ETag.
         "400":
           description: Bad Request (invalid visibility value)
         "500":
@@ -2233,6 +2280,30 @@ paths:
                 $ref: '#/components/schemas/ProfileRecord'
         "404":
           description: Default profile not found
+        "500":
+          description: Internal Server Error
+
+  /api/v1/profiles/defaults:
+    get:
+      summary: List bundled default profiles
+      description: |
+        Returns the entries from the bundled defaults manifest
+        (`assets/defaultProfiles/manifest.json`) with their human-readable
+        metadata. Use the `filename` from each entry as the `{filename}` path
+        parameter for `POST /api/v1/profiles/restore/{filename}`.
+
+        Returns an empty array when the manifest is missing or unreadable;
+        per-file parse failures are skipped and logged server-side.
+      tags: [Profiles]
+      responses:
+        "200":
+          description: Array of bundled default profile descriptors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DefaultProfileDescriptor'
         "500":
           description: Internal Server Error
 
@@ -2575,6 +2646,55 @@ paths:
                 properties:
                   message:
                     type: string
+
+  /api/v1/webui/skin-assets/{id}/{filepath}:
+    get:
+      summary: Fetch an asset from an installed skin
+      description: |
+        Returns a file from another installed skin's folder. Lets a skin
+        reference shared assets (icons, fonts, components) hosted by a
+        different installed skin instead of duplicating them.
+
+        The `id` is the target skin's installed id. `filepath` is the path
+        inside that skin's folder, relative to its root. The response body
+        is the raw file bytes; `Content-Type` is sniffed from the file
+        contents and extension.
+      tags: [WebUI]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Installed skin id (as returned by `GET /api/v1/webui/skins`).
+        - name: filepath
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Path of the asset relative to the skin's root folder
+            (e.g. `assets/logo.svg`). May contain forward slashes.
+      responses:
+        "200":
+          description: Asset bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Skin or asset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Failed to read asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   # Presence API
   #
@@ -3204,6 +3324,48 @@ paths:
                   - buildNumber
                   - appStore
                   - fullVersion
+  /api/v1/debug/scale/{command}:
+    post:
+      summary: Control mock scale (simulate mode only)
+      description: |
+        Debug endpoints for controlling the simulated scale. Only available
+        when the app is launched with `--dart-define=simulate=1`.
+        Returns 404 on production builds.
+      tags: [Debug]
+      parameters:
+        - name: command
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [stall, resume, disconnect]
+          description: |
+            - `stall` — pause weight emission (scale stays "connected")
+            - `resume` — resume weight emission after stall
+            - `disconnect` — simulate disconnect (emits disconnected state, stops data)
+      responses:
+        "200":
+          description: Command executed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [stalled, resumed, disconnected]
+        "400":
+          description: No scale connected or scale is not a MockScale
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "404":
+          description: Unknown command or endpoint not available (non-simulate build)
+
 components:
   schemas:
     Error:
@@ -3213,6 +3375,44 @@ components:
           type: string
         st:
           type: string
+
+    ConnectionError:
+      type: object
+      required: [kind, severity, timestamp, message]
+      properties:
+        kind:
+          type: string
+          description: >
+            Error kind identifier. Skins should look up localized copy
+            by this field. Initial set:
+            scaleConnectFailed, machineConnectFailed,
+            scaleDisconnected, machineDisconnected,
+            adapterOff, bluetoothPermissionDenied, scanFailed.
+            New kinds may be added without a version bump.
+        severity:
+          type: string
+          enum: [warning, error]
+        timestamp:
+          type: string
+          format: date-time
+        deviceId:
+          type: string
+          nullable: true
+        deviceName:
+          type: string
+          nullable: true
+        message:
+          type: string
+          description: App-supplied English default message.
+        suggestion:
+          type: string
+          nullable: true
+          description: App-supplied English default suggestion for the user.
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Freeform diagnostic payload; shape varies by kind.
 
     MachineInfo:
       type: object
@@ -4119,6 +4319,34 @@ components:
       type: string
       enum: [visible, hidden, deleted]
       description: Visibility state of a profile. 'visible' = shown in UI, 'hidden' = hidden from UI but not deleted, 'deleted' = soft-deleted (user profiles only)
+
+    DefaultProfileDescriptor:
+      type: object
+      required:
+        - filename
+        - title
+        - author
+        - notes
+        - beverageType
+      properties:
+        filename:
+          type: string
+          description: Manifest filename. Use as `{filename}` for `POST /api/v1/profiles/restore/{filename}`.
+          example: "Default1.json"
+        title:
+          type: string
+          description: Human-readable profile title.
+          example: "Default 1"
+        author:
+          type: string
+          example: "Decent"
+        notes:
+          type: string
+          description: Free-form description; may be empty.
+        beverageType:
+          type: string
+          description: Beverage type enum value (e.g. `espresso`, `filter`).
+          example: "espresso"
 
     WebUISkin:
       type: object

@@ -93,6 +93,8 @@ body {
     --button-primary-text: #ffffff;
     --button-secondary-bg: #e8e8e8;
     --button-secondary-text: #121212;
+    /* bg colors in profile editor */
+    --secondary-button-bg:#b6c3d7; 
 }
 
 [data-theme='dark'] {
