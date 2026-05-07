@@ -16,9 +16,9 @@
     <!-- Tab bar -->
     <div class="flex items-center px-6 h-[82px] border-b border-base-300 bg-[var(--box-color)]">
         <div class="flex items-center gap-[12px] bg-white border-2 border-[#e8e8e8] rounded-[60px] px-[16px] h-[58px]">
-            <button class="editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide" data-tab="0">STEPS</button>
+            <button class="editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide" data-tab="0">GRID</button>
+            <button class="editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide" data-tab="2">TEXT</button>
             <button class="editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide" data-tab="1">SETTINGS</button>
-            <button class="editor-tab-btn font-bold px-[28px] h-[44px] rounded-[44px] transition-colors text-[20px] tracking-wide" data-tab="2">REVIEW</button>
         </div>
     </div>
 
@@ -44,8 +44,8 @@
             <div class="flex h-full bg-white rounded-[20px] mx-[30px] my-[20px] border-2 border-[#e8e8e8] overflow-hidden">
                 <!-- Left: Steps Review -->
                 <div id="review-steps-col" class="flex-1 border-r-2 border-[#e8e8e8] overflow-y-auto p-[30px] flex flex-col gap-[20px]">
-                    <p class="text-[24px] font-semibold text-[#121212]">Steps Review</p>
-                    <div id="review-steps-list" class="grid grid-cols-2 gap-x-[30px] gap-y-[20px]"></div>
+                    <p class="text-[24px] font-semibold text-[#121212]">Text Review</p>
+                    <div id="review-steps-list" class="flex gap-[30px]"></div>
                 </div>
                 <!-- Right: Graph + Settings -->
                 <div id="review-right-col" class="flex-1 overflow-y-auto p-[30px] flex flex-col gap-[20px]">

@@ -28,6 +28,59 @@ let expandedExitSteps = new Set();
 // Which review field is currently expanded (at most one at a time)
 let expandedReviewField = null; // { collapseFunc: fn } | null
 
+// ─── Focus Overlay ───────────────────────────────────────────────────────────
+// 4-div hole approach: keep focal element in-place, surround it with 4 fixed
+// overlay divs (top/right/bottom/left) leaving a rectangular hole. No DOM
+// manipulation of focal elements — stacking context issues are irrelevant.
+
+let _focusOverlay = null; // { top, right, bottom, left } — four divs
+
+function _ensureFocusOverlayDivs() {
+    if (_focusOverlay) return;
+    _focusOverlay = {};
+    ['top','right','bottom','left'].forEach(side => {
+        const d = document.createElement('div');
+        d.style.cssText = 'position:fixed;background:rgba(255,255,255,0.7);z-index:1000;display:none;cursor:default;';
+        document.body.appendChild(d);
+        _focusOverlay[side] = d;
+    });
+}
+
+function showFocusOverlay(el, collapseCallback) {
+    _ensureFocusOverlayDivs();
+    const PAD = 8; // small breathing room around tight-fit bounds
+
+    // Compute union bounding rect of el + all descendants (catches absolute ± buttons)
+    const rects = [el.getBoundingClientRect()];
+    el.querySelectorAll('*').forEach(child => {
+        const cr = child.getBoundingClientRect();
+        if (cr.width > 0 && cr.height > 0) rects.push(cr);
+    });
+    let minT = Infinity, minL = Infinity, maxB = -Infinity, maxR = -Infinity;
+    for (const rc of rects) {
+        if (rc.top    < minT) minT = rc.top;
+        if (rc.left   < minL) minL = rc.left;
+        if (rc.bottom > maxB) maxB = rc.bottom;
+        if (rc.right  > maxR) maxR = rc.right;
+    }
+
+    const t = minT - PAD, l = minL - PAD;
+    const b = maxB + PAD, ri = maxR + PAD;
+    const W = window.innerWidth;
+
+    Object.assign(_focusOverlay.top.style,    { display:'', top:'0',             left:'0',    width:W+'px',              height:Math.max(0,t)+'px'       });
+    Object.assign(_focusOverlay.bottom.style, { display:'', top:b+'px',          left:'0',    width:W+'px',              height:'',        bottom:'0'      });
+    Object.assign(_focusOverlay.left.style,   { display:'', top:Math.max(0,t)+'px', left:'0', width:Math.max(0,l)+'px', height:(b - Math.max(0,t))+'px' });
+    Object.assign(_focusOverlay.right.style,  { display:'', top:Math.max(0,t)+'px', left:ri+'px', right:'0', width:'',  height:(b - Math.max(0,t))+'px' });
+
+    Object.values(_focusOverlay).forEach(d => { d.onclick = () => collapseCallback(); });
+}
+
+function clearFocusOverlay() {
+    if (!_focusOverlay) return;
+    Object.values(_focusOverlay).forEach(d => { d.style.display = 'none'; d.onclick = null; });
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const EXIT_TYPES    = ['pressure', 'flow', 'weight', 'time', 'off'];
@@ -186,7 +239,7 @@ function renderStepCards() {
     const TOTAL_ROWS = 6;
 
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = `220px repeat(${numSteps}, minmax(300px, 1fr))`;
+    container.style.gridTemplateColumns = `110px repeat(${numSteps}, minmax(300px, 1fr))`;
     container.style.gridTemplateRows = `60px 1fr 1fr 1fr 1fr 60px`;
     container.style.height = '100%';
     container.style.width = '100%';
@@ -270,7 +323,7 @@ function renderStepCards() {
             let sensorValue = step.sensor || 'coffee';
             const sensorBtn = document.createElement('button');
             sensorBtn.type = 'button';
-            sensorBtn.className = 'text-[var(--text-primary) border border-[var(--secondary-button-bg)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            sensorBtn.className = 'text-[var(--text-primary) border border-[var(--secondary-button-outline)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
             sensorBtn.textContent = sensorValue === 'coffee' ? 'Coffee' : 'Water';
             sensorBtn.addEventListener('click', () => {
                 sensorValue = sensorValue === 'coffee' ? 'water' : 'coffee';
@@ -320,6 +373,7 @@ function renderStepCards() {
                 minusBtn.style.display = 'none';
                 plusBtn.style.display = 'none';
                 sensorBtn.style.opacity = '';
+                clearFocusOverlay();
             }
 
             function startTempTimer() {
@@ -355,6 +409,7 @@ function renderStepCards() {
                     minusBtn.style.display = '';
                     plusBtn.style.display = '';
                     sensorBtn.style.opacity = '0.3';
+                    showFocusOverlay(tempDisplay, collapseTempSpinner);
                     startTempTimer();
                 }
             });
@@ -399,7 +454,7 @@ function renderStepCards() {
 
             const transBtn = document.createElement('button');
             transBtn.type = 'button';
-            transBtn.className = ' border border-[var(--secondary-button-bg)] text-black rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            transBtn.className = ' border border-[var(--secondary-button-outline)] text-black rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
             transBtn.textContent = transValue === 'fast' ? 'Quick' : 'Smooth';
 
             const rampText = document.createElement('span');
@@ -475,6 +530,7 @@ function renderStepCards() {
                 targetMinus.style.display = 'none';
                 targetPlus.style.display = 'none';
                 transBtn.style.opacity = '';
+                clearFocusOverlay();
             }
 
             function startPumpTimer() {
@@ -517,6 +573,7 @@ function renderStepCards() {
                     targetMinus.style.display = '';
                     targetPlus.style.display = '';
                     transBtn.style.opacity = '0.3';
+                    showFocusOverlay(targetWrapper, collapsePumpSpinner);
                     startPumpTimer();
                 }
             });
@@ -569,7 +626,7 @@ function renderStepCards() {
             let limTimer = null;
 
             const withText = document.createElement('span');
-            withText.className = 'font-bold text-[20px] text-[var(--text-primary)] select-none';
+            withText.className = 'text-[20px] text-[var(--text-primary)] select-none';
             withText.textContent = 'Limit to';
 
             const limDisplay = document.createElement('span');
@@ -637,6 +694,7 @@ function renderStepCards() {
                 limMinus.style.display = 'none';
                 limPlus.style.display = 'none';
                 withText.style.opacity = '';
+                clearFocusOverlay();
             }
 
             function startLimTimer() {
@@ -673,6 +731,7 @@ function renderStepCards() {
                     limMinus.style.display = '';
                     limPlus.style.display = '';
                     withText.style.opacity = '0.3';
+                    showFocusOverlay(limWrapper, collapseLimSpinner);
                     startLimTimer();
                 }
             });
@@ -716,7 +775,7 @@ function renderStepCards() {
             let exitTimer = null;
 
             const btnGray = 'bg-gray-400 text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
-            const btnGrayFlash = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const btnGrayFlash = 'border border-[var(--secondary-button-outline)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
 
             const typeBtn = document.createElement('button');
             typeBtn.type = 'button';
@@ -777,6 +836,7 @@ function renderStepCards() {
                 exitPlus.style.display = 'none';
                 typeBtn.style.opacity = '';
                 condBtn.style.opacity = '';
+                clearFocusOverlay();
             }
 
             function startExitTimer() {
@@ -845,6 +905,7 @@ function renderStepCards() {
                     exitPlus.style.display = '';
                     typeBtn.style.opacity = '0.3';
                     condBtn.style.opacity = '0.3';
+                    showFocusOverlay(valueWrapper, collapseExitSpinner);
                     startExitTimer();
                 }
             });
@@ -897,7 +958,7 @@ function renderStepCards() {
             let maxTimer = null;
 
             const blueDisplayClass = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
-            const grayDisplayClass = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+            const grayDisplayClass = 'border border-[var(--secondary-button-outline)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
 
             const maxPlaceholder = document.createElement('span');
             maxPlaceholder.className = grayDisplayClass;
@@ -908,6 +969,7 @@ function renderStepCards() {
                 clearTimeout(maxTimer);
                 expandedMaxSteps.delete(index);
                 updateMaxSectionVisibility();
+                clearFocusOverlay();
             }
 
             function startMaxTimer() {
@@ -947,6 +1009,14 @@ function renderStepCards() {
                     ref.section.style.whiteSpace = '';
                     ref.section.style.marginTop = '';
                     ref.section.style.marginBottom = '';
+                });
+
+                // In edit mode prev/next sections are nested inside curr.section —
+                // extract them before clearing so they aren't lost inside curr's subtree
+                fieldRefs.forEach(ref => {
+                    if (ref.section.parentNode && ref.section.parentNode !== maxTopRow) {
+                        ref.section.parentNode.removeChild(ref.section);
+                    }
                 });
 
                 maxTopRow.innerHTML = '';
@@ -1009,6 +1079,7 @@ function renderStepCards() {
                 expandedMaxSteps.set(index, 'weight');
                 updateMaxSectionVisibility();
                 startMaxTimer();
+                showFocusOverlay(maxTopRow, collapseMaxSpinner);
             });
 
             MAX_FIELDS.forEach(({ key, unit, fStep, fMax }) => {
@@ -1080,6 +1151,7 @@ function renderStepCards() {
                         expandedMaxSteps.set(index, key);
                         updateMaxSectionVisibility();
                         startMaxTimer();
+                        showFocusOverlay(maxTopRow, collapseMaxSpinner);
                     }
                 });
 
@@ -1151,24 +1223,59 @@ function renderSettingsTab() {
         return wrapper;
     }
 
+    // Preinfusion ends after — checkboxes with step names
+    {
+        const steps = profile.steps || [];
+        let countStart = profile.target_volume_count_start || 0;
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.className = 'flex flex-col gap-[10px]';
+
+        const checkboxes = steps.map((step, i) => {
+            const row = document.createElement('label');
+            row.className = 'flex items-center gap-[10px] cursor-pointer';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = i < countStart;
+            cb.className = 'w-[22px] h-[22px] accent-[var(--button-primary-bg)] cursor-pointer';
+
+            const name = document.createElement('span');
+            name.className = 'text-[20px] text-[var(--text-primary)]';
+            name.textContent = step.name || `Step ${i + 1}`;
+
+            cb.addEventListener('change', () => {
+                // Checking step N checks all steps 0..N; unchecking N unchecks N..end
+                if (cb.checked) {
+                    for (let j = 0; j <= i; j++) checkboxes[j].checked = true;
+                } else {
+                    for (let j = i; j < checkboxes.length; j++) checkboxes[j].checked = false;
+                }
+                countStart = checkboxes.filter(c => c.checked).length;
+                editorState.profile.target_volume_count_start = countStart;
+            });
+
+            row.appendChild(cb);
+            row.appendChild(name);
+            checkboxContainer.appendChild(row);
+            return cb;
+        });
+
+        addSettingsField('Preinfusion ends after', checkboxContainer);
+    }
+
+    // Target Volume (stop shot after preinfusion)
+    addSettingsField('After preinfusion stop the shot at', createSpinner(
+        profile.target_volume || 0, 1, 'ml', (val) => { editorState.profile.target_volume = val; }, { min: 0, max: 500 }
+    ));
+
     // Target Weight
     addSettingsField('Target Weight (g)', createSpinner(
         profile.target_weight || 0, 0.1, 'g', (val) => { editorState.profile.target_weight = val; }, { min: 0, max: 500 }
     ));
 
-    // Target Volume
-    addSettingsField('Target Volume (ml)', createSpinner(
-        profile.target_volume || 0, 1, 'ml', (val) => { editorState.profile.target_volume = val; }, { min: 0, max: 500 }
-    ));
-
     // Tank Temperature
     addSettingsField('Tank Temperature (\u00b0c)', createSpinner(
         profile.tank_temperature || 0, 1, '\u00b0c', (val) => { editorState.profile.tank_temperature = val; }, { min: 0, max: 110 }
-    ));
-
-    // Volume Count Start
-    addSettingsField('Volume Count Start at Step', createSpinner(
-        profile.target_volume_count_start || 0, 1, '', (val) => { editorState.profile.target_volume_count_start = val; }, { min: 0, max: 10 }
     ));
 
     // Author (text input) — col 1
@@ -1206,9 +1313,8 @@ function renderSettingsTab() {
 
 function describeStep(step, index) {
     const PROSE_CLASS = 'text-[20px] text-[#121212] select-none';
-    const PILL_ACTIVE   = 'text-[var(--button-primary-bg)] text-[20px] font-semibold cursor-pointer select-none min-w-[80px] inline-flex justify-center underline decoration-dashed underline-offset-[3px] px-[4px] rounded-[4px]';
-    const PILL_INACTIVE = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none min-w-[80px] inline-flex justify-center';
-    const TOGGLE_CLASS  = 'border border-[var(--secondary-button-bg)] text-[var(--text-primary)] rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
+    const PILL_ACTIVE   = 'text-[var(--button-primary-bg)] text-[20px] font-semibold cursor-pointer select-none inline-flex underline decoration-dashed underline-offset-[3px] px-[4px] rounded-[4px]';
+    const TOGGLE_CLASS  = 'text-[var(--button-primary-bg)] text-[20px] font-semibold cursor-pointer select-none underline decoration-dashed underline-offset-[3px] px-[4px]';
     const BTN_CLASS     = 'bg-[#ededed] rounded-[12px] w-[40px] h-[40px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
 
     function makeProseSpan(text) {
@@ -1236,9 +1342,9 @@ function describeStep(step, index) {
         wrapper.style.position = 'relative';
 
         const valuePill = document.createElement('span');
-        valuePill.className = value > 0 ? PILL_ACTIVE : PILL_INACTIVE;
+        valuePill.className = PILL_ACTIVE;
         valuePill.textContent = `${roundTo(value, step)} ${unit}`;
-        valuePill.addEventListener('mouseenter', () => { if (value > 0) valuePill.style.backgroundColor = 'rgba(3,88,207,0.08)'; });
+        valuePill.addEventListener('mouseenter', () => { valuePill.style.backgroundColor = 'rgba(3,88,207,0.08)'; });
         valuePill.addEventListener('mouseleave', () => { valuePill.style.backgroundColor = ''; });
 
         const minusBtn = document.createElement('span');
@@ -1271,13 +1377,14 @@ function describeStep(step, index) {
 
         function updatePill() {
             valuePill.textContent = `${roundTo(value, step)} ${unit}`;
-            valuePill.className = value > 0 ? PILL_ACTIVE : PILL_INACTIVE;
+            valuePill.className = PILL_ACTIVE;
         }
 
         function collapse() {
             clearTimeout(collapseTimer);
             hideBtns();
             expandedReviewField = null;
+            clearFocusOverlay();
         }
 
         function resetTimer() {
@@ -1289,6 +1396,7 @@ function describeStep(step, index) {
             if (expandedReviewField) expandedReviewField.collapseFunc();
             showBtns();
             expandedReviewField = { collapseFunc: collapse };
+            showFocusOverlay(wrapper, collapse);
             resetTimer();
         }
 
@@ -1377,7 +1485,7 @@ function describeStep(step, index) {
             (val) => { editorState.profile.steps[index].temperature = val; renderReviewGraph(); }
         );
 
-        lines.push(makeLine([sensorToggle, 'temperature to', tempSpinner]));
+        lines.push(makeLine([sensorToggle, 'to', tempSpinner]));
     }
 
     // Line 2 — Pump target
@@ -1398,7 +1506,7 @@ function describeStep(step, index) {
                 step.flow ?? 0, 0.1, 'mL/s', 0, 15,
                 (val) => { editorState.profile.steps[index].flow = val; renderReviewGraph(); }
             );
-            lines.push(makeLine(['Ramp', transToggle, 'to a rate of', flowSpinner]));
+            lines.push(makeLine(['Ramp', transToggle, 'to', flowSpinner]));
         } else {
             const pressureSpinner = makeNumericSpinner(
                 step.pressure ?? 0, 0.1, 'bar', 0, 16,
@@ -1426,37 +1534,211 @@ function describeStep(step, index) {
         }
     }
 
-    // Line 4 — Max duration/volume/weight (only if at least one non-zero)
+    // Line 4 — Max (weight / seconds / volume)
+    // Collapsed + all-zero  → "+ max" placeholder
+    // Collapsed + any non-zero → "Up to [non-zero pills]"
+    // Expanded → mainRow: non-zero pills  |  extraRow below: zero pills (no ± overlap)
     {
-        const secVal = step.seconds ?? 0;
-        const volVal = step.volume ?? 0;
-        const wgtVal = step.weight ?? 0;
-        const parts = [];
+        const MAX_FIELDS = [
+            { key: 'weight',  unit: 'g',   fStep: 1, fMax: 500 },
+            { key: 'seconds', unit: 'sec', fStep: 1, fMax: 300 },
+            { key: 'volume',  unit: 'ml',  fStep: 1, fMax: 500 },
+        ];
 
-        if (wgtVal > 0) {
-            parts.push(makeNumericSpinner(wgtVal, 1, 'g', 0, 500,
-                (val) => { editorState.profile.steps[index].weight = val; renderReviewGraph(); }
-            ));
-        }
-        if (secVal > 0) {
-            parts.push(makeNumericSpinner(secVal, 1, 'sec', 0, 300,
-                (val) => { editorState.profile.steps[index].seconds = val; renderReviewGraph(); }
-            ));
-        }
-        if (volVal > 0) {
-            parts.push(makeNumericSpinner(volVal, 1, 'ml', 0, 500,
-                (val) => { editorState.profile.steps[index].volume = val; renderReviewGraph(); }
-            ));
-        }
+        const vals = { weight: step.weight ?? 0, seconds: step.seconds ?? 0, volume: step.volume ?? 0 };
+        let maxExpanded = false, activeMaxField = null, maxTimer = null;
 
-        if (parts.length) {
-            const children = ['For a maximum of'];
-            parts.forEach((p, i) => {
-                if (i > 0) children.push('or');
-                children.push(p);
+        // ── Stable container (never destroyed) ───────────────────────────────
+        const lineWrapper = document.createElement('span');
+        lineWrapper.style.cssText = 'display:inline-flex;flex-direction:column;gap:4px;position:relative;';
+
+        const mainRow = document.createElement('span');
+        mainRow.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+
+        const extraRow = document.createElement('span');
+        extraRow.style.cssText = 'display:none;align-items:center;gap:6px;';
+
+        lineWrapper.appendChild(mainRow);
+        lineWrapper.appendChild(extraRow);
+
+        // ── Static text nodes (moved, never recreated) ────────────────────────
+        const upToText = document.createElement('span');
+        upToText.className = PROSE_CLASS;
+        upToText.textContent = 'Up to';
+
+        const placeholder = document.createElement('span');
+        placeholder.className = PILL_ACTIVE;
+        placeholder.textContent = '+ max';
+        placeholder.addEventListener('click', () => {
+            if (expandedReviewField) expandedReviewField.collapseFunc();
+            maxExpanded = true;
+            activeMaxField = MAX_FIELDS[0].key; // activate first pill immediately
+            expandedReviewField = { _isMax: true, collapseFunc: collapseMax };
+            updateMaxDisplay();
+            showFocusOverlay(lineWrapper, collapseMax);
+            startMaxTimer();
+        });
+
+        // ── Pill elements (created once per field, moved between rows) ────────
+        const pillEls = {};
+        MAX_FIELDS.forEach(({ key, unit, fStep, fMax }) => {
+            const pill = document.createElement('span');
+            pill.className = PILL_ACTIVE;
+            pill.style.position = 'relative';
+
+            const minus = document.createElement('span');
+            minus.className = BTN_CLASS;
+            minus.textContent = '\u2212';
+            minus.style.cssText = 'position:absolute;right:100%;top:50%;transform:translateY(-50%);margin-right:4px;display:none;';
+
+            const textEl = document.createElement('span');
+            textEl.textContent = `${vals[key]} ${unit}`;
+
+            const plus = document.createElement('span');
+            plus.className = BTN_CLASS;
+            plus.textContent = '+';
+            plus.style.cssText = 'position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:4px;display:none;';
+
+            pill.appendChild(minus);
+            pill.appendChild(textEl);
+            pill.appendChild(plus);
+
+            pillEls[key] = { pill, minus, textEl, plus };
+
+            // Long press → zero out
+            let lpTimer = null, lpFired = false;
+            pill.addEventListener('pointerdown', (e) => {
+                if (e.target === minus || e.target === plus) return;
+                if (activeMaxField !== key) return;
+                lpFired = false;
+                lpTimer = setTimeout(() => {
+                    lpFired = true;
+                    vals[key] = 0;
+                    editorState.profile.steps[index][key] = 0;
+                    textEl.textContent = `0 ${unit}`;
+                    renderReviewGraph();
+                    updateMaxDisplay();
+                    startMaxTimer();
+                }, 600);
             });
-            lines.push(makeLine(children));
+            pill.addEventListener('pointerup',     () => clearTimeout(lpTimer));
+            pill.addEventListener('pointerleave',  () => clearTimeout(lpTimer));
+            pill.addEventListener('pointercancel', () => clearTimeout(lpTimer));
+
+            pill.addEventListener('click', (e) => {
+                if (e.target === minus || e.target === plus) return;
+                if (lpFired) { lpFired = false; return; }
+                if (activeMaxField === key) {
+                    activeMaxField = null;
+                    if (expandedReviewField && expandedReviewField._isMax) expandedReviewField = null;
+                    updateMaxDisplay();
+                } else {
+                    if (expandedReviewField && !expandedReviewField._isMax) expandedReviewField.collapseFunc();
+                    activeMaxField = key;
+                    maxExpanded = true;
+                    expandedReviewField = { _isMax: true, collapseFunc: collapseMax };
+                    updateMaxDisplay();
+                    showFocusOverlay(lineWrapper, collapseMax);
+                    startMaxTimer();
+                }
+            });
+
+            minus.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wasZero = vals[key] === 0;
+                vals[key] = roundTo(clamp(vals[key] - fStep, 0, fMax), fStep);
+                editorState.profile.steps[index][key] = vals[key];
+                textEl.textContent = `${vals[key]} ${unit}`;
+                renderReviewGraph();
+                if (wasZero !== (vals[key] === 0)) updateMaxDisplay();
+                startMaxTimer();
+            });
+
+            plus.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wasZero = vals[key] === 0;
+                vals[key] = roundTo(clamp(vals[key] + fStep, 0, fMax), fStep);
+                editorState.profile.steps[index][key] = vals[key];
+                textEl.textContent = `${vals[key]} ${unit}`;
+                renderReviewGraph();
+                if (wasZero !== (vals[key] === 0)) updateMaxDisplay();
+                startMaxTimer();
+            });
+        });
+
+        function collapseMax() {
+            clearTimeout(maxTimer);
+            activeMaxField = null;
+            maxExpanded = false;
+            if (expandedReviewField && expandedReviewField._isMax) expandedReviewField = null;
+            updateMaxDisplay();
+            clearFocusOverlay();
         }
+
+        function startMaxTimer() {
+            clearTimeout(maxTimer);
+            maxTimer = setTimeout(collapseMax, 2000);
+        }
+
+        // Move stable nodes between rows — no destroy/recreate, no event listener loss.
+        // Option B: when editing, hide non-active non-zero siblings; show zero siblings to right.
+        function updateMaxDisplay() {
+            // Clear rows completely (removes transient wrappers like zeroGroup spans)
+            mainRow.innerHTML = '';
+            extraRow.innerHTML = '';
+            extraRow.style.display = 'none';
+            mainRow.style.gap = '6px';
+
+            const anyNonZero = MAX_FIELDS.some(f => vals[f.key] > 0);
+
+            // Collapsed + all zero → placeholder only
+            if (!maxExpanded && !anyNonZero) {
+                mainRow.style.gap = '6px';
+                mainRow.appendChild(placeholder);
+                return;
+            }
+
+            mainRow.appendChild(upToText);
+
+            // Show/hide ± buttons
+            MAX_FIELDS.forEach(({ key }) => {
+                const ref = pillEls[key];
+                ref.minus.style.display = activeMaxField === key ? '' : 'none';
+                ref.plus.style.display  = activeMaxField === key ? '' : 'none';
+            });
+
+            if (activeMaxField !== null) {
+                // Edit mode: active pill with ±, zero-value siblings grouped to right
+                mainRow.style.gap = '52px';
+                mainRow.appendChild(pillEls[activeMaxField].pill);
+                const zeroSiblings = MAX_FIELDS.filter(f => f.key !== activeMaxField && vals[f.key] === 0);
+                if (zeroSiblings.length > 0) {
+                    const zeroGroup = document.createElement('span');
+                    zeroGroup.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+                    zeroSiblings.forEach(f => zeroGroup.appendChild(pillEls[f.key].pill));
+                    mainRow.appendChild(zeroGroup);
+                }
+            } else {
+                // No active field: show all non-zero inline, zero pills in extraRow if expanded
+                mainRow.style.gap = '6px';
+                const zeroKeys = [];
+                MAX_FIELDS.forEach(({ key }) => {
+                    if (vals[key] > 0) {
+                        mainRow.appendChild(pillEls[key].pill);
+                    } else if (maxExpanded) {
+                        zeroKeys.push(key);
+                    }
+                });
+                if (zeroKeys.length > 0) {
+                    zeroKeys.forEach(key => extraRow.appendChild(pillEls[key].pill));
+                    extraRow.style.display = 'inline-flex';
+                    extraRow.style.gap = '6px';
+                }
+            }
+        }
+
+        updateMaxDisplay();
+        lines.push(lineWrapper);
     }
 
     // Line 4 — Exit condition
@@ -1582,14 +1864,55 @@ function renderReviewTab() {
     const stepsList = document.getElementById('review-steps-list');
     if (stepsList) {
         stepsList.innerHTML = '';
-        (profile.steps || []).forEach((step, i) => {
+        const steps = profile.steps || [];
+        const half = Math.ceil(steps.length / 2);
+
+        const leftCol = document.createElement('div');
+        leftCol.className = 'flex flex-col gap-[20px] flex-1';
+        const rightCol = document.createElement('div');
+        rightCol.className = 'flex flex-col gap-[20px] flex-1';
+
+        steps.forEach((step, i) => {
             const row = document.createElement('div');
             row.className = 'flex flex-col gap-[6px] text-[#121212]';
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'flex items-center justify-between';
 
             const nameEl = document.createElement('p');
             nameEl.className = 'font-semibold text-[20px] leading-[1.3]';
             nameEl.textContent = `${i + 1}: ${step.name || 'Step'}`;
-            row.appendChild(nameEl);
+
+            const nameActions = document.createElement('div');
+            nameActions.className = 'flex items-center gap-[4px]';
+
+            const reviewDeleteBtn = document.createElement('button');
+            reviewDeleteBtn.type = 'button';
+            reviewDeleteBtn.className = 'w-[36px] h-[36px] flex items-center justify-center text-red-500 hover:bg-red-50 rounded-[10px] cursor-pointer';
+            reviewDeleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
+            reviewDeleteBtn.setAttribute('aria-label', 'Delete step');
+            reviewDeleteBtn.addEventListener('click', () => {
+                editorState.profile.steps.splice(i, 1);
+                renderStepCards();
+                renderReviewTab();
+            });
+
+            const reviewInsertBtn = document.createElement('button');
+            reviewInsertBtn.type = 'button';
+            reviewInsertBtn.className = 'w-[36px] h-[36px] flex items-center justify-center text-[var(--mimoja-blue)] hover:bg-blue-50 rounded-[10px] cursor-pointer';
+            reviewInsertBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
+            reviewInsertBtn.setAttribute('aria-label', 'Insert step after');
+            reviewInsertBtn.addEventListener('click', () => {
+                editorState.profile.steps.splice(i + 1, 0, deepCopy(DEFAULT_STEP));
+                renderStepCards();
+                renderReviewTab();
+            });
+
+            nameActions.appendChild(reviewDeleteBtn);
+            nameActions.appendChild(reviewInsertBtn);
+            nameRow.appendChild(nameEl);
+            nameRow.appendChild(nameActions);
+            row.appendChild(nameRow);
 
             const bulletCol = document.createElement('ul');
             bulletCol.className = 'flex flex-col gap-[6px] list-disc list-inside text-[20px]';
@@ -1599,8 +1922,11 @@ function renderReviewTab() {
                 bulletCol.appendChild(li);
             }
             row.appendChild(bulletCol);
-            stepsList.appendChild(row);
+            (i < half ? leftCol : rightCol).appendChild(row);
         });
+
+        stepsList.appendChild(leftCol);
+        stepsList.appendChild(rightCol);
     }
 
     // ── Settings list ───────────────────────────────────────────────────────
