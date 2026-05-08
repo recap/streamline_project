@@ -1983,7 +1983,7 @@ export function showGhcControls() {
     if (status) {
         status.style.right = '200px'; // 172px GHC + 20px gap
         status.style.width = '384px'; // shrink from 556px so it fits 1268px left column
-        status.style.fontSize = '22px'; // reduce from 30px so long strings like "Espresso Heating: Please Wait" fit
+        status.style.fontSize = '26px'; // reduce from 34px so long strings like "Espresso Heating: Please Wait" fit
     }
 
     // Shrink Pressure column so it doesn't overlap GHC
