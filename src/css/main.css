@@ -1,5 +1,11 @@
 /* Scaling container - initially hidden until scaled */
+#scaling-container {
+    overflow: hidden;
+}
+
 #scaled-content {
+    width: 1920px;
+    height: 1200px;
     visibility: hidden;
     opacity: 0;
     transition: opacity 0.15s ease-out;
