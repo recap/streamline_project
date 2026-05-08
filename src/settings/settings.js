@@ -818,7 +818,7 @@ export function renderFlushSettingsForm(settings) {
                         </p>
                     </div>
                     <div class="content-stretch flex gap-[20px] h-[72px] items-center justify-center relative shrink-0 w-full">
-                        <button id="flush-temp-minus" aria-label="Decrease flush temperature" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                        <button id="flush-temp-minus" aria-label="Decrease flush temperature" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustFlushTemp(-5);">
                             <svg aria-hidden="true" width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10.416 25H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -832,7 +832,7 @@ export function renderFlushSettingsForm(settings) {
                                    onchange="window.updateDe1Setting('flushTemp', parseFloat(this.value))">
                             <span class="ml-2" aria-hidden="true">°C</span>
                         </div>
-                        <button id="flush-temp-plus" aria-label="Increase flush temperature" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                        <button id="flush-temp-plus" aria-label="Increase flush temperature" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustFlushTemp(5);">
                             <svg aria-hidden="true" width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M24.9993 10.4165V39.5832M10.416 24.9998H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -851,7 +851,7 @@ export function renderFlushSettingsForm(settings) {
                         </p>
                     </div>
                     <div class="content-stretch flex gap-[20px] h-[72px] items-center justify-center relative shrink-0 w-full">
-                        <button id="flush-flow-minus" aria-label="Decrease flush flow" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                        <button id="flush-flow-minus" aria-label="Decrease flush flow" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustFlushFlow(-1);">
                             <svg aria-hidden="true" width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10.416 25H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -865,7 +865,7 @@ export function renderFlushSettingsForm(settings) {
                                    onchange="window.updateDe1Setting('flushFlow', parseFloat(this.value))">
                             <span class="ml-2 text-nowrap" aria-hidden="true">ml/s</span>
                         </div>
-                        <button id="flush-flow-plus" aria-label="Increase flush flow" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                        <button id="flush-flow-plus" aria-label="Increase flush flow" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustFlushFlow(1);">
                             <svg aria-hidden="true" width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M24.9993 10.4165V39.5832M10.416 24.9998H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2282,7 +2282,7 @@ export function renderWaterTankSettings() {
                         </p>
                     </div>
                     <div class="content-stretch flex gap-[20px] h-[72px] items-center justify-center relative shrink-0 w-full">
-                        <button id="tank-temp-minus" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                        <button id="tank-temp-minus" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustTankTemp(-1);">
                             <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10.416 25H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2296,7 +2296,7 @@ export function renderWaterTankSettings() {
                                    onchange="window.updateDe1Setting('tankTemp', parseInt(this.value))">
                             <span class="ml-2 text-nowrap">°C</span>
                         </div>
-                        <button id="tank-temp-plus" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                        <button id="tank-temp-plus" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustTankTemp(1);">
                             <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M24.9993 10.4165V39.5832M10.416 24.9998H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2434,7 +2434,7 @@ export function renderCalibFanSettings(settings) {
                     </div>
                     <div class="content-stretch flex gap-[20px] h-[72px] items-center justify-center relative shrink-0 w-full">
                         <button id="calib-fan-minus" aria-label="Decrease fan threshold"
-                                class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                                class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustFanThreshold(-1);">
                             <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10.416 25H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2449,7 +2449,7 @@ export function renderCalibFanSettings(settings) {
                             <span class="ml-2 text-nowrap">°C</span>
                         </div>
                         <button id="calib-fan-plus" aria-label="Increase fan threshold"
-                                class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[20px] flex items-center justify-center"
+                                class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
                                 onclick="window.flashPlusMinusButton(this); window.adjustFanThreshold(1);">
                             <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M24.9993 10.4165V39.5832M10.416 24.9998H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -4921,7 +4921,7 @@ function renderDeviceList(containerId, devices, type, preferredId = '', settingK
         container.innerHTML = renderSingleDeviceList(devices, preferredId, settingKey);
     } else {
         container.innerHTML = `
-            <div class="flex items-center gap-[16px] w-full bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] rounded-[20px] px-[28px] py-[24px] opacity-60">
+            <div class="flex items-center gap-[16px] w-full bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] rounded-[18px] px-[28px] py-[24px] opacity-60">
                 <div class="w-[14px] h-[14px] rounded-full bg-[var(--profile-button-outline-color)] flex-shrink-0"></div>
                 <p class="text-[24px] text-[var(--text-primary)]">No ${type.toLowerCase()} found — tap Scan to search for nearby devices.</p>
             </div>`;
@@ -4948,7 +4948,7 @@ function renderSingleDeviceList(devices, preferredId = '', settingKey = '') {
         const safeSettingKey = settingKey.replace(/'/g, "\\'");
 
         deviceItems += `
-            <div class="flex items-center justify-between w-full bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] rounded-[20px] px-[28px] py-[24px] mb-[16px]">
+            <div class="flex items-center justify-between w-full bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] rounded-[18px] px-[28px] py-[24px] mb-[16px]">
                 <div class="flex items-center gap-[16px] flex-1 min-w-0">
                     <!-- Status dot -->
                     <div class="relative flex-shrink-0">

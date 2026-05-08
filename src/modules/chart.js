@@ -440,6 +440,7 @@ export function clearChart() {
 
 export function plotHistoricalShot(measurements, workflow = null) {
     if (!measurements || measurements.length === 0) {
+        clearChart();
         return;
     }
 
@@ -747,7 +748,22 @@ export function plotProfile(profile) {
     layout.annotations = [];
     layout.shapes = []; // Clear shapes for profile plot
     layout.xaxis.range = [0, currentTime];
-    layout.xaxis.dtick = 10;
+
+    // Adaptive X-axis tick density based on profile duration
+    let xDtick;
+    if (currentTime < 60) {
+        xDtick = 10;
+    } else if (currentTime < 120) {
+        xDtick = 15;
+    } else if (currentTime < 180) {
+        xDtick = 20;
+    } else {
+        xDtick = 30;
+    }
+    layout.xaxis.dtick = xDtick;
+
+    // Sparser Y-axis ticks (0, 2, 4, 6, 8, 10) instead of every 1 unit
+    layout.yaxis.dtick = 2;
     const plotData = JSON.parse(JSON.stringify(Object.values(chartData)));
 
     const targetPressureTrace = plotData.find(trace => trace.name === 'Target Pressure');

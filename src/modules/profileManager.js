@@ -463,11 +463,23 @@ async function handleDoubleClick(index) {
         logger.error(`Invalid button index ${index} in handleDoubleClick - must be between 0 and ${FAV_COUNT - 1}`);
         return;
     }
-    if (favoriteAssignments[index]) {
-        logger.info(`Double-click on assigned button ${index}. Clearing assignment.`);
-        favoriteAssignments[index] = null;
-        await saveAssignments();
-        updateButtonUI();
+    const profileKey = favoriteAssignments[index];
+    if (profileKey) {
+        if (profileKey === activeProfileId) {
+            // Double tap on the selected (active) profile → open profile editor
+            logger.info(`Double-click on active profile button ${index}. Opening profile editor.`);
+            const profileRecord = availableProfiles[profileKey];
+            if (profileRecord) {
+                window.__pendingEditProfile = profileRecord;
+                loadPage('src/profiles/profile_editor.html');
+            }
+        } else {
+            // Double tap on an assigned but not currently selected button → clear assignment
+            logger.info(`Double-click on assigned (inactive) button ${index}. Clearing assignment.`);
+            favoriteAssignments[index] = null;
+            await saveAssignments();
+            updateButtonUI();
+        }
     } else {
         logger.info(`Double-click on unassigned button ${index}. Navigating to profile selector.`);
         sessionStorage.setItem('pendingAssignmentIndex', index);

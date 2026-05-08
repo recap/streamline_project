@@ -177,6 +177,7 @@ export async function initHistory() {
     if (shots.length > 0) {
         displayShot(0);
     } else {
+        chart.clearChart();
         clearShotData();
     }
 }
@@ -198,6 +199,8 @@ export async function clearShotHistory() {
             const profileNameEl = document.getElementById('history-profile-name');
             if (dateEl) dateEl.textContent = '';
             if (profileNameEl) profileNameEl.textContent = '';
+            document.getElementById('history-prev-btn')?.classList.add('invisible');
+            document.getElementById('history-next-btn')?.classList.add('invisible');
         }
     } catch (error) {
         logger.error('Error clearing shot history:', error);
@@ -230,6 +233,8 @@ export async function deleteCurrentShot() {
     if (shots.length === 0) {
         chart.clearChart();
         clearShotData();
+        document.getElementById('history-prev-btn')?.classList.add('invisible');
+        document.getElementById('history-next-btn')?.classList.add('invisible');
     } else {
         displayShot(Math.min(currentShotIndex, shots.length - 1));
     }

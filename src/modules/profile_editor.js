@@ -1,5 +1,6 @@
 import { loadPage } from './router.js';
 import { showToast } from './ui.js';
+import { openModal, shouldUseNumpad, resetNumpadModal } from './numpad-modal.js';
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,23 @@ function clearFocusOverlay() {
     Object.values(_focusOverlay).forEach(d => { d.style.display = 'none'; d.onclick = null; });
 }
 
+// ─── Numpad Helper ─────────────────────────────────────────────────────────
+
+function openNumpadForField(currentVal, numpadConfig, onCommit) {
+    // After router navigation the DOM is rebuilt; reset flag if overlay was lost
+    if (!document.getElementById('numpad-modal-overlay')) resetNumpadModal();
+    clearFocusOverlay();
+    const mockInput = { value: String(currentVal), dispatchEvent: () => {} };
+    openModal(mockInput, {
+        fieldType: numpadConfig.fieldType || 'pe-generic',
+        config: numpadConfig,
+        onConfirm: (val) => {
+            const num = parseFloat(val);
+            if (!isNaN(num)) onCommit(clamp(num, numpadConfig.min ?? 0, numpadConfig.max ?? 9999));
+        }
+    });
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const EXIT_TYPES    = ['pressure', 'flow', 'weight', 'time', 'off'];
@@ -134,7 +152,7 @@ function createSpinner(initialValue, step, unit, onChange, opts = {}) {
 
     const minusBtn = document.createElement('button');
     minusBtn.type = 'button';
-    minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+    minusBtn.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
     minusBtn.textContent = '\u2212';
     minusBtn.setAttribute('aria-label', 'Decrease');
 
@@ -143,7 +161,7 @@ function createSpinner(initialValue, step, unit, onChange, opts = {}) {
 
     const plusBtn = document.createElement('button');
     plusBtn.type = 'button';
-    plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+    plusBtn.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
     plusBtn.textContent = '+';
     plusBtn.setAttribute('aria-label', 'Increase');
 
@@ -338,7 +356,7 @@ function renderStepCards() {
 
             const minusBtn = document.createElement('button');
             minusBtn.type = 'button';
-            minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            minusBtn.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             minusBtn.textContent = '\u2212';
             minusBtn.style.position = 'absolute';
             minusBtn.style.right = '100%';
@@ -349,7 +367,7 @@ function renderStepCards() {
 
             const plusBtn = document.createElement('button');
             plusBtn.type = 'button';
-            plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            plusBtn.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             plusBtn.textContent = '+';
             plusBtn.style.position = 'absolute';
             plusBtn.style.left = '100%';
@@ -403,6 +421,16 @@ function renderStepCards() {
                 if (e.target === minusBtn || e.target === plusBtn) return;
                 if (tempLongPressFired) { tempLongPressFired = false; return; }
                 if (expandedTempSteps.has(index)) {
+                    if (shouldUseNumpad()) {
+                        openNumpadForField(tempValue, { fieldType: 'pe-temp', title: 'TEMPERATURE', unit: '\u00b0C', min: 0, max: 110, label: '0\u2013110' }, (val) => {
+                            tempValue = val;
+                            tempDisplay.childNodes[0].textContent = `${tempValue}\u00b0C`;
+                            editorState.profile.steps[index].temperature = tempValue;
+                            renderReviewGraph();
+                        });
+                        startTempTimer();
+                        return;
+                    }
                     collapseTempSpinner();
                 } else {
                     expandedTempSteps.add(index);
@@ -494,7 +522,7 @@ function renderStepCards() {
 
             const targetMinus = document.createElement('button');
             targetMinus.type = 'button';
-            targetMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            targetMinus.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             targetMinus.textContent = '\u2212';
             targetMinus.style.position = 'absolute';
             targetMinus.style.right = '100%';
@@ -505,7 +533,7 @@ function renderStepCards() {
 
             const targetPlus = document.createElement('button');
             targetPlus.type = 'button';
-            targetPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            targetPlus.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             targetPlus.textContent = '+';
             targetPlus.style.position = 'absolute';
             targetPlus.style.left = '100%';
@@ -567,6 +595,21 @@ function renderStepCards() {
             targetDisplay.addEventListener('click', () => {
                 if (targetLongPressFired) { targetLongPressFired = false; return; }
                 if (expandedPumpSteps.has(index)) {
+                    if (shouldUseNumpad()) {
+                        const pumpConfig = isFlow
+                            ? { fieldType: 'pe-pump', title: 'FLOW', unit: 'mL/s', min: 0, max: 15, label: '0\u201315' }
+                            : { fieldType: 'pe-pump', title: 'PRESSURE', unit: 'bar', min: 0, max: 16, label: '0\u201316' };
+                        openNumpadForField(targetValue, pumpConfig, (val) => {
+                            targetValue = val;
+                            targetDisplay.textContent = `${targetValue}`;
+                            updateTargetStyle();
+                            if (isFlow) editorState.profile.steps[index].flow = targetValue;
+                            else editorState.profile.steps[index].pressure = targetValue;
+                            renderReviewGraph();
+                        });
+                        startPumpTimer();
+                        return;
+                    }
                     collapsePumpSpinner();
                 } else {
                     expandedPumpSteps.add(index);
@@ -660,7 +703,7 @@ function renderStepCards() {
 
             const limMinus = document.createElement('button');
             limMinus.type = 'button';
-            limMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            limMinus.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             limMinus.textContent = '\u2212';
             limMinus.style.position = 'absolute';
             limMinus.style.right = '100%';
@@ -671,7 +714,7 @@ function renderStepCards() {
 
             const limPlus = document.createElement('button');
             limPlus.type = 'button';
-            limPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            limPlus.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             limPlus.textContent = '+';
             limPlus.style.position = 'absolute';
             limPlus.style.left = '100%';
@@ -725,6 +768,21 @@ function renderStepCards() {
             limDisplay.addEventListener('click', () => {
                 if (limLongPressFired) { limLongPressFired = false; return; }
                 if (expandedLimSteps.has(index)) {
+                    if (shouldUseNumpad()) {
+                        const limConfig = isFlow
+                            ? { fieldType: 'pe-lim', title: 'PRESSURE LIMIT', unit: 'bar', min: 0, max: 16, label: '0\u201316' }
+                            : { fieldType: 'pe-lim', title: 'FLOW LIMIT', unit: 'mL/s', min: 0, max: 15, label: '0\u201315' };
+                        openNumpadForField(limValue, limConfig, (val) => {
+                            limValue = val;
+                            limDisplay.textContent = `${limValue}`;
+                            updateLimStyle();
+                            if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: limValue, range: 0.6 };
+                            else editorState.profile.steps[index].limiter.value = limValue;
+                            renderReviewGraph();
+                        });
+                        startLimTimer();
+                        return;
+                    }
                     collapseLimSpinner();
                 } else {
                     expandedLimSteps.add(index);
@@ -795,7 +853,7 @@ function renderStepCards() {
 
             const exitMinus = document.createElement('button');
             exitMinus.type = 'button';
-            exitMinus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            exitMinus.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             exitMinus.textContent = '\u2212';
             exitMinus.style.position = 'absolute';
             exitMinus.style.right = '100%';
@@ -806,7 +864,7 @@ function renderStepCards() {
 
             const exitPlus = document.createElement('button');
             exitPlus.type = 'button';
-            exitPlus.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+            exitPlus.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
             exitPlus.textContent = '+';
             exitPlus.style.position = 'absolute';
             exitPlus.style.left = '100%';
@@ -898,6 +956,24 @@ function renderStepCards() {
             valueDisplay.addEventListener('click', () => {
                 if (exitLongPressFired) { exitLongPressFired = false; return; }
                 if (expandedExitSteps.has(index)) {
+                    if (exitType !== 'off' && shouldUseNumpad()) {
+                        openNumpadForField(exitValue, {
+                            fieldType: 'pe-exit',
+                            title: 'EXIT ' + exitType.toUpperCase(),
+                            unit: EXIT_UNIT_MAP[exitType] || '',
+                            min: 0,
+                            max: EXIT_MAX_MAP[exitType] || 100,
+                            label: '0\u2013' + (EXIT_MAX_MAP[exitType] || 100)
+                        }, (val) => {
+                            exitValue = val;
+                            valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
+                            if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                            else editorState.profile.steps[index].exit.value = exitValue;
+                            renderReviewGraph();
+                        });
+                        startExitTimer();
+                        return;
+                    }
                     collapseExitSpinner();
                 } else {
                     expandedExitSteps.add(index);
@@ -1093,7 +1169,7 @@ function renderStepCards() {
 
                 const minusBtn = document.createElement('button');
                 minusBtn.type = 'button';
-                minusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+                minusBtn.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
                 minusBtn.textContent = '\u2212';
                 minusBtn.style.position = 'absolute';
                 minusBtn.style.right = '100%';
@@ -1104,7 +1180,7 @@ function renderStepCards() {
 
                 const plusBtn = document.createElement('button');
                 plusBtn.type = 'button';
-                plusBtn.className = 'bg-[#ededed] rounded-[12px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+                plusBtn.className = 'bg-[#ededed] rounded-[18px] w-[48px] h-[48px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
                 plusBtn.textContent = '+';
                 plusBtn.style.position = 'absolute';
                 plusBtn.style.left = '100%';
@@ -1146,6 +1222,22 @@ function renderStepCards() {
                     if (longPressFired) { longPressFired = false; return; }
                     const current = expandedMaxSteps.get(index) ?? null;
                     if (current === key) {
+                        if (shouldUseNumpad()) {
+                            const MAX_CONFIG = {
+                                weight:  { fieldType: 'pe-max-weight',  title: 'MAX WEIGHT', unit: 'g',   min: 0, max: 500, label: '0\u2013500' },
+                                seconds: { fieldType: 'pe-max-seconds', title: 'MAX TIME',   unit: 'sec', min: 0, max: 300, label: '0\u2013300' },
+                                volume:  { fieldType: 'pe-max-volume',  title: 'MAX VOLUME', unit: 'ml',  min: 0, max: 500, label: '0\u2013500' },
+                            };
+                            openNumpadForField(fieldValue, MAX_CONFIG[key], (val) => {
+                                fieldValue = val;
+                                editorState.profile.steps[index][key] = val;
+                                display.childNodes[0].textContent = `${val} ${unit}`;
+                                renderReviewGraph();
+                                updateMaxSectionVisibility();
+                            });
+                            startMaxTimer();
+                            return;
+                        }
                         collapseMaxSpinner();
                     } else {
                         expandedMaxSteps.set(index, key);
@@ -1223,44 +1315,33 @@ function renderSettingsTab() {
         return wrapper;
     }
 
-    // Preinfusion ends after — checkboxes with step names
+    // Preinfusion ends after — dropdown of step names
     {
         const steps = profile.steps || [];
-        let countStart = profile.target_volume_count_start || 0;
-        const checkboxContainer = document.createElement('div');
-        checkboxContainer.className = 'flex flex-col gap-[10px]';
+        const countStart = profile.target_volume_count_start || 0;
 
-        const checkboxes = steps.map((step, i) => {
-            const row = document.createElement('label');
-            row.className = 'flex items-center gap-[10px] cursor-pointer';
+        const preinfSelect = document.createElement('select');
+        preinfSelect.className = 'text-[24px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full';
 
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = i < countStart;
-            cb.className = 'w-[22px] h-[22px] accent-[var(--button-primary-bg)] cursor-pointer';
+        const noneOpt = document.createElement('option');
+        noneOpt.value = '0';
+        noneOpt.textContent = 'None';
+        if (countStart === 0) noneOpt.selected = true;
+        preinfSelect.appendChild(noneOpt);
 
-            const name = document.createElement('span');
-            name.className = 'text-[20px] text-[var(--text-primary)]';
-            name.textContent = step.name || `Step ${i + 1}`;
-
-            cb.addEventListener('change', () => {
-                // Checking step N checks all steps 0..N; unchecking N unchecks N..end
-                if (cb.checked) {
-                    for (let j = 0; j <= i; j++) checkboxes[j].checked = true;
-                } else {
-                    for (let j = i; j < checkboxes.length; j++) checkboxes[j].checked = false;
-                }
-                countStart = checkboxes.filter(c => c.checked).length;
-                editorState.profile.target_volume_count_start = countStart;
-            });
-
-            row.appendChild(cb);
-            row.appendChild(name);
-            checkboxContainer.appendChild(row);
-            return cb;
+        steps.forEach((step, i) => {
+            const opt = document.createElement('option');
+            opt.value = String(i + 1);
+            opt.textContent = step.name || `Step ${i + 1}`;
+            if (countStart === i + 1) opt.selected = true;
+            preinfSelect.appendChild(opt);
         });
 
-        addSettingsField('Preinfusion ends after', checkboxContainer);
+        preinfSelect.addEventListener('change', () => {
+            editorState.profile.target_volume_count_start = parseInt(preinfSelect.value, 10);
+        });
+
+        addSettingsField('Preinfusion ends after', preinfSelect);
     }
 
     // Target Volume (stop shot after preinfusion)
@@ -1315,7 +1396,7 @@ function describeStep(step, index) {
     const PROSE_CLASS = 'text-[20px] text-[#121212] select-none';
     const PILL_ACTIVE   = 'text-[var(--button-primary-bg)] text-[20px] font-semibold cursor-pointer select-none inline-flex underline decoration-dashed underline-offset-[3px] px-[4px] rounded-[4px]';
     const TOGGLE_CLASS  = 'text-[var(--button-primary-bg)] text-[20px] font-semibold cursor-pointer select-none underline decoration-dashed underline-offset-[3px] px-[4px]';
-    const BTN_CLASS     = 'bg-[#ededed] rounded-[12px] w-[40px] h-[40px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
+    const BTN_CLASS     = 'bg-[#ededed] rounded-[18px] w-[40px] h-[40px] flex items-center justify-center cursor-pointer select-none text-xl font-bold text-[var(--text-primary)] z-[10]';
 
     function makeProseSpan(text) {
         const span = document.createElement('span');
@@ -1422,6 +1503,20 @@ function describeStep(step, index) {
         valuePill.addEventListener('click', () => {
             if (longPressFired) { longPressFired = false; return; }
             if (expandedReviewField && expandedReviewField.collapseFunc === collapse) {
+                if (shouldUseNumpad()) {
+                    openNumpadForField(value, {
+                        fieldType: 'pe-review',
+                        title: unit.toUpperCase(),
+                        unit, min, max,
+                        label: `${min}\u2013${max}`
+                    }, (val) => {
+                        value = val;
+                        valuePill.textContent = `${roundTo(value, step)} ${unit}`;
+                        onCommit(value);
+                        resetTimer();
+                    });
+                    return;
+                }
                 collapse();
             } else {
                 expand();
@@ -1629,6 +1724,22 @@ function describeStep(step, index) {
                 if (e.target === minus || e.target === plus) return;
                 if (lpFired) { lpFired = false; return; }
                 if (activeMaxField === key) {
+                    if (shouldUseNumpad()) {
+                        const MAX_CONFIGS = {
+                            weight:  { fieldType: 'pe-max-weight',  title: 'MAX WEIGHT', unit: 'g',   min: 0, max: 500, label: '0\u2013500' },
+                            seconds: { fieldType: 'pe-max-seconds', title: 'MAX TIME',   unit: 'sec', min: 0, max: 300, label: '0\u2013300' },
+                            volume:  { fieldType: 'pe-max-volume',  title: 'MAX VOLUME', unit: 'ml',  min: 0, max: 500, label: '0\u2013500' },
+                        };
+                        openNumpadForField(vals[key], MAX_CONFIGS[key], (val) => {
+                            vals[key] = val;
+                            editorState.profile.steps[index][key] = val;
+                            textEl.textContent = `${val} ${unit}`;
+                            renderReviewGraph();
+                            updateMaxDisplay();
+                        });
+                        startMaxTimer();
+                        return;
+                    }
                     activeMaxField = null;
                     if (expandedReviewField && expandedReviewField._isMax) expandedReviewField = null;
                     updateMaxDisplay();

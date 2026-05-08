@@ -6,6 +6,7 @@ let currentValue = '0';
 let originalValue = '0';
 let previousValues = [];
 let onConfirmCallback = null;
+let isFirstInput = false;
 
 async function getPreviousValues(fieldType) {
     try {
@@ -239,7 +240,10 @@ function updateDisplay() {
 
 function handleNumberClick(num) {
     console.log('[Numpad] handleNumberClick called with:', num, 'currentValue before:', currentValue);
-    if (currentValue === '0' || currentValue === '') {
+    if (isFirstInput) {
+        currentValue = num;
+        isFirstInput = false;
+    } else if (currentValue === '0' || currentValue === '') {
         currentValue = num;
     } else if (currentValue.length < 5) {
         currentValue = currentValue + num;
@@ -249,13 +253,18 @@ function handleNumberClick(num) {
 }
 
 function handleDecimalClick() {
-    if (!currentValue.includes('.') && currentValue.length < 5) {
+    if (isFirstInput) {
+        currentValue = '0.';
+        isFirstInput = false;
+        updateDisplay();
+    } else if (!currentValue.includes('.') && currentValue.length < 5) {
         currentValue = currentValue + '.';
         updateDisplay();
     }
 }
 
 function handleBackspace() {
+    isFirstInput = false;
     if (currentValue.length > 0) {
         currentValue = currentValue.slice(0, -1);
         if (currentValue === '' || currentValue === '-') {
@@ -267,6 +276,7 @@ function handleBackspace() {
 
 function handlePreviousValue(value) {
     currentValue = value;
+    isFirstInput = false;
     updateDisplay();
 }
 
@@ -335,13 +345,14 @@ async function openModal(inputElement, options = {}) {
     
     currentInputElement = inputElement;
     currentFieldType = options.fieldType || 'dose-in';
-    
-    const config = fieldConfig[currentFieldType] || fieldConfig['dose-in'];
+
+    const config = options.config || fieldConfig[currentFieldType] || fieldConfig['dose-in'];
     const inputValue = inputElement.value || inputElement.getAttribute('data-default') || config.defaultValue;
     // Remove any existing units for editing
     currentValue = inputValue.replace(/[g°c]/g, '').trim() || config.defaultValue;
     originalValue = currentValue;
     
+    isFirstInput = true;
     console.log('[Numpad] currentValue set to:', currentValue);
     
     // Update modal title and label
