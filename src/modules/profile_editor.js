@@ -1,6 +1,7 @@
 import { loadPage } from './router.js';
-import { showToast } from './ui.js';
+import { showToast, flashPlusMinusButton } from './ui.js';
 import { openModal, shouldUseNumpad, resetNumpadModal } from './numpad-modal.js';
+import { openNotesModal } from './notes-modal.js';
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,75 @@ function openNumpadForField(currentVal, numpadConfig, onCommit) {
     });
 }
 
+// ─── Desktop Inline Edit Helper ────────────────────────────────────────────
+// On desktop (non-numpad), clicking a numeric display opens a small input field
+// so the user can type a value directly instead of using +/- buttons.
+
+function inlineEditValue(displayEl, currentValue, { min, max, step, unit, onCommit }) {
+    if (shouldUseNumpad()) return false; // tablet — let numpad handle it
+    if (!displayEl || !displayEl.querySelector) return false; // not a valid element
+    if (displayEl.querySelector('input')) return false; // already editing
+
+    // Find the first text node to replace (preserve child elements like ± buttons)
+    let textNode = null;
+    for (const child of displayEl.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) { textNode = child; break; }
+    }
+    const savedText = textNode ? textNode.textContent : displayEl.textContent;
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = currentValue;
+    input.step = step || 'any';
+    if (min !== undefined) input.min = min;
+    if (max !== undefined) input.max = max;
+    input.className = 'bg-transparent border-b-2 border-white outline-none text-center font-bold text-white';
+    input.style.cssText = `width:${Math.max(displayEl.offsetWidth, 60)}px;font-size:inherit;line-height:inherit;`;
+
+    if (textNode) {
+        displayEl.replaceChild(input, textNode);
+    } else {
+        displayEl.textContent = '';
+        displayEl.appendChild(input);
+    }
+    input.focus();
+    input.select();
+
+    function commit() {
+        const num = parseFloat(input.value);
+        restore(); // always put text node back before calling onCommit
+        if (!isNaN(num)) {
+            const clamped = clamp(roundTo(num, step || 0.1), min ?? 0, max ?? 9999);
+            onCommit(clamped);
+        }
+        cleanup();
+    }
+
+    function restore() {
+        const newText = document.createTextNode(savedText);
+        if (input.parentNode === displayEl) displayEl.replaceChild(newText, input);
+    }
+
+    function cancel() {
+        restore();
+        cleanup();
+    }
+
+    function cleanup() {
+        input.removeEventListener('blur', commit);
+        input.removeEventListener('keydown', onKey);
+    }
+
+    function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); input.removeEventListener('blur', commit); cancel(); }
+    }
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', onKey);
+    return true; // handled
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const EXIT_TYPES    = ['pressure', 'flow', 'weight', 'time', 'off'];
@@ -178,15 +248,27 @@ function createSpinner(initialValue, step, unit, onChange, opts = {}) {
     }
 
     minusBtn.addEventListener('click', () => {
+        flashPlusMinusButton(minusBtn);
         value = roundTo(clamp(value - step, min, max), step);
         updateDisplay();
         debouncedOnChange();
     });
 
     plusBtn.addEventListener('click', () => {
+        flashPlusMinusButton(plusBtn);
         value = roundTo(clamp(value + step, min, max), step);
         updateDisplay();
         debouncedOnChange();
+    });
+
+    // Desktop: click display to type value directly
+    display.style.cursor = 'pointer';
+    display.addEventListener('click', () => {
+        inlineEditValue(display, value, { min, max, step, unit, onCommit: (val) => {
+            value = val;
+            updateDisplay();
+            onChange(value);
+        }});
     });
 
     updateDisplay();
@@ -351,8 +433,13 @@ function renderStepCards() {
 
             const tempDisplay = document.createElement('span');
             tempDisplay.className = 'bg-[var(--button-primary-bg)] text-white rounded-[8px] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none';
-            tempDisplay.textContent = `${tempValue}\u00b0C`;
             tempDisplay.style.position = 'relative';
+            tempDisplay.style.minWidth = '80px';
+            tempDisplay.style.textAlign = 'center';
+            tempDisplay.style.display = 'inline-block';
+            const tempTextSpan = document.createElement('span');
+            tempTextSpan.textContent = `${tempValue}\u00b0C`;
+            tempDisplay.appendChild(tempTextSpan);
 
             const minusBtn = document.createElement('button');
             minusBtn.type = 'button';
@@ -424,14 +511,22 @@ function renderStepCards() {
                     if (shouldUseNumpad()) {
                         openNumpadForField(tempValue, { fieldType: 'pe-temp', title: 'TEMPERATURE', unit: '\u00b0C', min: 0, max: 110, label: '0\u2013110' }, (val) => {
                             tempValue = val;
-                            tempDisplay.childNodes[0].textContent = `${tempValue}\u00b0C`;
+                            tempTextSpan.textContent = `${tempValue}\u00b0C`;
                             editorState.profile.steps[index].temperature = tempValue;
                             renderReviewGraph();
                         });
                         startTempTimer();
                         return;
                     }
-                    collapseTempSpinner();
+                    // Desktop: inline edit on second click
+                    const handled = inlineEditValue(tempTextSpan, tempValue, { min: 0, max: 110, step: 0.5, unit: '\u00b0C', onCommit: (val) => {
+                        tempValue = val;
+                        tempTextSpan.textContent = `${tempValue}\u00b0C`;
+                        editorState.profile.steps[index].temperature = tempValue;
+                        renderReviewGraph();
+                        collapseTempSpinner();
+                    }});
+                    if (!handled) collapseTempSpinner();
                 } else {
                     expandedTempSteps.add(index);
                     minusBtn.style.display = '';
@@ -444,16 +539,18 @@ function renderStepCards() {
 
             minusBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                flashPlusMinusButton(minusBtn);
                 tempValue = roundTo(clamp(tempValue - 0.5, 0, 110), 0.5);
-                tempDisplay.childNodes[0].textContent = `${tempValue}\u00b0C`;
+                tempTextSpan.textContent = `${tempValue}\u00b0C`;
                 editorState.profile.steps[index].temperature = tempValue;
                 startTempTimer();
             });
 
             plusBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                flashPlusMinusButton(plusBtn);
                 tempValue = roundTo(clamp(tempValue + 0.5, 0, 110), 0.5);
-                tempDisplay.childNodes[0].textContent = `${tempValue}\u00b0C`;
+                tempTextSpan.textContent = `${tempValue}\u00b0C`;
                 editorState.profile.steps[index].temperature = tempValue;
                 startTempTimer();
             });
@@ -509,8 +606,8 @@ function renderStepCards() {
             function updateTargetStyle() {
                 const active = targetValue > 0;
                 targetWrapper.style.background = active ? 'var(--button-primary-bg)' : 'var(--secondary-button-bg)';
-                const txtCls = active ? 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none' : 'font-bold text-[20px] text-[var(--text-primary)] px-[8px] py-[2px] cursor-pointer select-none';
-                const unitCls = active ? 'text-white px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent' : 'text-[var(--text-primary)] px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent';
+                const txtCls = active ? 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none' : 'font-bold text-[20px] text-white px-[8px] py-[2px] cursor-pointer select-none';
+                const unitCls = active ? 'text-white px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent' : 'text-white px-[8px] py-[2px] text-[20px] font-semibold cursor-pointer select-none bg-transparent';
                 targetDisplay.className = txtCls;
                 unitBtn.className = unitCls;
                 wrapDivider.style.opacity = active ? '' : '0';
@@ -610,7 +707,18 @@ function renderStepCards() {
                         startPumpTimer();
                         return;
                     }
-                    collapsePumpSpinner();
+                    // Desktop: inline edit
+                    const tMax = isFlow ? 15 : 16;
+                    const handled = inlineEditValue(targetDisplay, targetValue, { min: 0, max: tMax, step: tStep, onCommit: (val) => {
+                        targetValue = val;
+                        targetDisplay.textContent = `${targetValue}`;
+                        updateTargetStyle();
+                        if (isFlow) editorState.profile.steps[index].flow = targetValue;
+                        else editorState.profile.steps[index].pressure = targetValue;
+                        renderReviewGraph();
+                        collapsePumpSpinner();
+                    }});
+                    if (!handled) collapsePumpSpinner();
                 } else {
                     expandedPumpSteps.add(index);
                     targetMinus.style.display = '';
@@ -635,6 +743,7 @@ function renderStepCards() {
             });
 
             targetMinus.addEventListener('click', () => {
+                flashPlusMinusButton(targetMinus);
                 targetValue = roundTo(clamp(targetValue - tStep, 0, targetMax), tStep);
                 targetDisplay.textContent = `${targetValue}`;
                 updateTargetStyle();
@@ -644,6 +753,7 @@ function renderStepCards() {
             });
 
             targetPlus.addEventListener('click', () => {
+                flashPlusMinusButton(targetPlus);
                 targetValue = roundTo(clamp(targetValue + tStep, 0, targetMax), tStep);
                 targetDisplay.textContent = `${targetValue}`;
                 updateTargetStyle();
@@ -783,7 +893,17 @@ function renderStepCards() {
                         startLimTimer();
                         return;
                     }
-                    collapseLimSpinner();
+                    // Desktop: inline edit
+                    const handled = inlineEditValue(limDisplay, limValue, { min: 0, max: limMax, step: lStep, onCommit: (val) => {
+                        limValue = val;
+                        limDisplay.textContent = `${limValue}`;
+                        updateLimStyle();
+                        if (!editorState.profile.steps[index].limiter) editorState.profile.steps[index].limiter = { value: limValue, range: 0.6 };
+                        else editorState.profile.steps[index].limiter.value = limValue;
+                        renderReviewGraph();
+                        collapseLimSpinner();
+                    }});
+                    if (!handled) collapseLimSpinner();
                 } else {
                     expandedLimSteps.add(index);
                     limMinus.style.display = '';
@@ -795,6 +915,7 @@ function renderStepCards() {
             });
 
             limMinus.addEventListener('click', () => {
+                flashPlusMinusButton(limMinus);
                 limValue = roundTo(clamp(limValue - lStep, 0, limMax), lStep);
                 limDisplay.textContent = `${limValue}`;
                 updateLimStyle();
@@ -804,6 +925,7 @@ function renderStepCards() {
             });
 
             limPlus.addEventListener('click', () => {
+                flashPlusMinusButton(limPlus);
                 limValue = roundTo(clamp(limValue + lStep, 0, limMax), lStep);
                 limDisplay.textContent = `${limValue}`;
                 updateLimStyle();
@@ -974,7 +1096,17 @@ function renderStepCards() {
                         startExitTimer();
                         return;
                     }
-                    collapseExitSpinner();
+                    if (!inlineEditValue(valueDisplay, exitValue, {
+                        min: 0, max: EXIT_MAX_MAP[exitType] || 100,
+                        step: EXIT_STEP_MAP[exitType], unit: EXIT_UNIT_MAP[exitType],
+                        onCommit(val) {
+                            exitValue = val;
+                            valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
+                            if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
+                            else editorState.profile.steps[index].exit.value = exitValue;
+                            renderReviewGraph();
+                        }
+                    })) collapseExitSpinner();
                 } else {
                     expandedExitSteps.add(index);
                     exitMinus.style.display = '';
@@ -987,6 +1119,7 @@ function renderStepCards() {
             });
 
             exitMinus.addEventListener('click', () => {
+                flashPlusMinusButton(exitMinus);
                 exitValue = roundTo(clamp(exitValue - EXIT_STEP_MAP[exitType], 0, EXIT_MAX_MAP[exitType]), EXIT_STEP_MAP[exitType]);
                 valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
                 if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
@@ -995,6 +1128,7 @@ function renderStepCards() {
             });
 
             exitPlus.addEventListener('click', () => {
+                flashPlusMinusButton(exitPlus);
                 exitValue = roundTo(clamp(exitValue + EXIT_STEP_MAP[exitType], 0, EXIT_MAX_MAP[exitType]), EXIT_STEP_MAP[exitType]);
                 valueDisplay.textContent = `${exitValue} ${EXIT_UNIT_MAP[exitType]}`;
                 if (!editorState.profile.steps[index].exit) editorState.profile.steps[index].exit = { type: exitType, condition: exitCond, value: exitValue };
@@ -1238,7 +1372,16 @@ function renderStepCards() {
                             startMaxTimer();
                             return;
                         }
-                        collapseMaxSpinner();
+                        if (!inlineEditValue(display, fieldValue, {
+                            min: 0, max: fMax, step: fStep, unit,
+                            onCommit(val) {
+                                fieldValue = val;
+                                editorState.profile.steps[index][key] = val;
+                                display.childNodes[0].textContent = `${val} ${unit}`;
+                                renderReviewGraph();
+                                updateMaxSectionVisibility();
+                            }
+                        })) collapseMaxSpinner();
                     } else {
                         expandedMaxSteps.set(index, key);
                         updateMaxSectionVisibility();
@@ -1249,6 +1392,7 @@ function renderStepCards() {
 
                 minusBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    flashPlusMinusButton(minusBtn);
                     fieldValue = roundTo(clamp(fieldValue - fStep, 0, fMax), fStep);
                     display.childNodes[0].textContent = `${fieldValue} ${unit}`;
                     editorState.profile.steps[index][key] = fieldValue;
@@ -1258,6 +1402,7 @@ function renderStepCards() {
 
                 plusBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    flashPlusMinusButton(plusBtn);
                     fieldValue = roundTo(clamp(fieldValue + fStep, 0, fMax), fStep);
                     display.childNodes[0].textContent = `${fieldValue} ${unit}`;
                     editorState.profile.steps[index][key] = fieldValue;
@@ -1303,7 +1448,24 @@ function renderSettingsTab() {
 
     const profile = editorState.profile;
 
-    function addSettingsField(labelText, element) {
+    // Create 3 column containers
+    const leftCol = document.createElement('div');
+    leftCol.className = 'flex flex-col gap-[24px]';
+    leftCol.style.width = '25%';
+
+    const middleCol = document.createElement('div');
+    middleCol.className = 'flex flex-col gap-[24px]';
+    middleCol.style.width = '25%';
+
+    const rightCol = document.createElement('div');
+    rightCol.className = 'flex flex-col gap-[24px]';
+    rightCol.style.width = '50%';
+
+    container.appendChild(leftCol);
+    container.appendChild(middleCol);
+    container.appendChild(rightCol);
+
+    function addFieldTo(targetCol, labelText, element) {
         const wrapper = document.createElement('div');
         wrapper.className = 'flex flex-col gap-[12px]';
         const label = document.createElement('div');
@@ -1311,9 +1473,75 @@ function renderSettingsTab() {
         label.textContent = labelText;
         wrapper.appendChild(label);
         wrapper.appendChild(element);
-        container.appendChild(wrapper);
+        targetCol.appendChild(wrapper);
         return wrapper;
     }
+
+    // ── Left column: Target Weight, Tank Temperature, Beverage Type, Author ──
+
+    // Target Weight
+    addFieldTo(leftCol, 'Target Weight (g)', createSpinner(
+        profile.target_weight || 0, 0.1, 'g', (val) => { editorState.profile.target_weight = val; }, { min: 0, max: 500 }
+    ));
+
+    // Tank Temperature
+    addFieldTo(leftCol, 'Tank Temperature (\u00b0c)', createSpinner(
+        profile.tank_temperature || 0, 1, '\u00b0c', (val) => { editorState.profile.tank_temperature = val; }, { min: 0, max: 110 }
+    ));
+
+    // Limiter Tolerance — separate controls for bar (flow-pump steps) and mL/s (pressure-pump steps)
+    {
+        const steps = profile.steps || [];
+        const flowPumpStep = steps.find(s => s.pump === 'flow');
+        const pressurePumpStep = steps.find(s => s.pump === 'pressure');
+
+        const barRange = parseFloat(flowPumpStep?.limiter?.range ?? 0.6);
+        addFieldTo(leftCol, 'Limiter Tolerance (bar)', createSpinner(
+            barRange, 0.1, 'bar', (val) => {
+                (editorState.profile.steps || []).forEach(step => {
+                    if (step.pump === 'flow') {
+                        if (!step.limiter) step.limiter = { value: 0, range: val };
+                        else step.limiter.range = val;
+                    }
+                });
+            }, { min: 0, max: 5 }
+        ));
+
+        const mlsRange = parseFloat(pressurePumpStep?.limiter?.range ?? 0.6);
+        addFieldTo(leftCol, 'Limiter Tolerance (mL/s)', createSpinner(
+            mlsRange, 0.1, 'mL/s', (val) => {
+                (editorState.profile.steps || []).forEach(step => {
+                    if (step.pump === 'pressure') {
+                        if (!step.limiter) step.limiter = { value: 0, range: val };
+                        else step.limiter.range = val;
+                    }
+                });
+            }, { min: 0, max: 5 }
+        ));
+    }
+
+    // Beverage Type (select)
+    const select = document.createElement('select');
+    select.className = 'text-[24px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full';
+    ['espresso', 'manual', 'cleaning'].forEach((type) => {
+        const opt = document.createElement('option');
+        opt.value = type;
+        opt.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+        if (profile.beverage_type === type) opt.selected = true;
+        select.appendChild(opt);
+    });
+    select.addEventListener('change', () => { editorState.profile.beverage_type = select.value; });
+    addFieldTo(leftCol, 'Beverage Type', select);
+
+    // Author (text input)
+    const authorInput = document.createElement('input');
+    authorInput.type = 'text';
+    authorInput.value = profile.author || '';
+    authorInput.className = 'text-[24px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full';
+    authorInput.addEventListener('change', () => { editorState.profile.author = authorInput.value; });
+    addFieldTo(leftCol, 'Author', authorInput);
+
+    // ── Middle column: Preinfusion ends after, After preinfusion stop the shot at ──
 
     // Preinfusion ends after — dropdown of step names
     {
@@ -1341,53 +1569,37 @@ function renderSettingsTab() {
             editorState.profile.target_volume_count_start = parseInt(preinfSelect.value, 10);
         });
 
-        addSettingsField('Preinfusion ends after', preinfSelect);
+        addFieldTo(middleCol, 'Preinfusion ends after', preinfSelect);
     }
 
     // Target Volume (stop shot after preinfusion)
-    addSettingsField('After preinfusion stop the shot at', createSpinner(
+    addFieldTo(middleCol, 'After preinfusion stop the shot at', createSpinner(
         profile.target_volume || 0, 1, 'ml', (val) => { editorState.profile.target_volume = val; }, { min: 0, max: 500 }
     ));
 
-    // Target Weight
-    addSettingsField('Target Weight (g)', createSpinner(
-        profile.target_weight || 0, 0.1, 'g', (val) => { editorState.profile.target_weight = val; }, { min: 0, max: 500 }
-    ));
+    // ── Right column: Notes (tall textarea filling column height) ──
 
-    // Tank Temperature
-    addSettingsField('Tank Temperature (\u00b0c)', createSpinner(
-        profile.tank_temperature || 0, 1, '\u00b0c', (val) => { editorState.profile.tank_temperature = val; }, { min: 0, max: 110 }
-    ));
-
-    // Author (text input) — col 1
-    const authorInput = document.createElement('input');
-    authorInput.type = 'text';
-    authorInput.value = profile.author || '';
-    authorInput.className = 'text-[24px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full';
-    authorInput.addEventListener('change', () => { editorState.profile.author = authorInput.value; });
-    addSettingsField('Author', authorInput);
-
-    // Beverage Type (select) — col 2, same row as Author
-    const select = document.createElement('select');
-    select.className = 'text-[24px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full';
-    ['espresso', 'manual', 'cleaning'].forEach((type) => {
-        const opt = document.createElement('option');
-        opt.value = type;
-        opt.textContent = type.charAt(0).toUpperCase() + type.slice(1);
-        if (profile.beverage_type === type) opt.selected = true;
-        select.appendChild(opt);
+    const notesPreview = document.createElement('div');
+    notesPreview.className = 'text-[22px] text-[var(--text-primary)] bg-white border-2 border-[#e8e8e8] rounded-[12px] px-[20px] py-[16px] cursor-pointer select-none overflow-y-auto flex-1 whitespace-pre-wrap leading-[1.5] hover:border-[var(--mimoja-blue)] transition-colors';
+    function updateNotesPreview() {
+        const text = editorState.profile.notes || '';
+        if (text) {
+            notesPreview.textContent = text;
+            notesPreview.style.color = '';
+        } else {
+            notesPreview.textContent = 'Tap to edit notes\u2026';
+            notesPreview.style.color = '#959595';
+        }
+    }
+    updateNotesPreview();
+    notesPreview.addEventListener('click', () => {
+        openNotesModal(editorState.profile.notes || '', (newText) => {
+            editorState.profile.notes = newText;
+            updateNotesPreview();
+        });
     });
-    select.addEventListener('change', () => { editorState.profile.beverage_type = select.value; });
-    addSettingsField('Beverage Type', select);
-
-    // Notes (textarea) — spans both columns, grows to fill remaining space
-    const notesArea = document.createElement('textarea');
-    notesArea.value = profile.notes || '';
-    notesArea.className = 'text-[22px] text-[var(--text-primary)] bg-white border border-gray-300 rounded-[12px] px-[16px] py-[12px] outline-none focus:border-[var(--mimoja-blue)] w-full resize-none min-h-[200px]';
-    notesArea.style.flex = '1';
-    notesArea.addEventListener('change', () => { editorState.profile.notes = notesArea.value; });
-    const notesWrapper = addSettingsField('Notes', notesArea);
-    notesWrapper.className = 'flex flex-col gap-[12px] col-span-2';
+    const notesWrapper = addFieldTo(rightCol, 'Notes', notesPreview);
+    notesWrapper.className = 'flex flex-col gap-[12px] flex-1';
 }
 
 // ─── Review Tab ─────────────────────────────────────────────────────────────
@@ -1517,13 +1729,22 @@ function describeStep(step, index) {
                     });
                     return;
                 }
-                collapse();
+                if (!inlineEditValue(valuePill, value, {
+                    min, max, step, unit,
+                    onCommit(val) {
+                        value = val;
+                        valuePill.textContent = `${roundTo(value, step)} ${unit}`;
+                        onCommit(value);
+                        resetTimer();
+                    }
+                })) collapse();
             } else {
                 expand();
             }
         });
 
         minusBtn.addEventListener('click', () => {
+            flashPlusMinusButton(minusBtn);
             value = roundTo(clamp(value - step, min, max), step);
             updatePill();
             onCommit(value);
@@ -1531,6 +1752,7 @@ function describeStep(step, index) {
         });
 
         plusBtn.addEventListener('click', () => {
+            flashPlusMinusButton(plusBtn);
             value = roundTo(clamp(value + step, min, max), step);
             updatePill();
             onCommit(value);
@@ -1740,9 +1962,20 @@ function describeStep(step, index) {
                         startMaxTimer();
                         return;
                     }
-                    activeMaxField = null;
-                    if (expandedReviewField && expandedReviewField._isMax) expandedReviewField = null;
-                    updateMaxDisplay();
+                    if (!inlineEditValue(pill, vals[key], {
+                        min: 0, max: fMax, step: fStep, unit,
+                        onCommit(val) {
+                            vals[key] = val;
+                            editorState.profile.steps[index][key] = val;
+                            textEl.textContent = `${val} ${unit}`;
+                            renderReviewGraph();
+                            updateMaxDisplay();
+                        }
+                    })) {
+                        activeMaxField = null;
+                        if (expandedReviewField && expandedReviewField._isMax) expandedReviewField = null;
+                        updateMaxDisplay();
+                    }
                 } else {
                     if (expandedReviewField && !expandedReviewField._isMax) expandedReviewField.collapseFunc();
                     activeMaxField = key;
@@ -1756,6 +1989,7 @@ function describeStep(step, index) {
 
             minus.addEventListener('click', (e) => {
                 e.stopPropagation();
+                flashPlusMinusButton(minus);
                 const wasZero = vals[key] === 0;
                 vals[key] = roundTo(clamp(vals[key] - fStep, 0, fMax), fStep);
                 editorState.profile.steps[index][key] = vals[key];
@@ -1767,6 +2001,7 @@ function describeStep(step, index) {
 
             plus.addEventListener('click', (e) => {
                 e.stopPropagation();
+                flashPlusMinusButton(plus);
                 const wasZero = vals[key] === 0;
                 vals[key] = roundTo(clamp(vals[key] + fStep, 0, fMax), fStep);
                 editorState.profile.steps[index][key] = vals[key];

@@ -33,6 +33,9 @@
     <link href="src/css/dark-mode.css" rel="stylesheet" type="text/css" />
     <link href="src/css/main.css" rel="stylesheet" type="text/css" />
     <link href="src/css/numpad-modal.css" rel="stylesheet" type="text/css" />
+    <link href="src/css/notes-modal.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
     <link rel="preload" href="src/modules/ui.js" as ="script"/>
     <link rel="preload" href="src/settings/settings.js" as ="script"/>
     <link rel="preload" href="src/profiles/profile_selector.html" as="document">
@@ -231,19 +234,19 @@
 
                 <!-- GHC column: h = 116 (header) + 675 (chart) = 791px -->
                 <aside id="ghc-controls" class="bg-[var(--box-color)] border-l border-base-300 w-[172px] shrink-0 h-[791px] flex flex-col items-center justify-around py-[20px]" style="display:none" aria-label="Machine Controls">
-                    <button id="ghc-coffee-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Start Coffee">
+                    <button id="ghc-coffee-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px]  bg-[var(--profile-button-background-color)]" aria-label="Start Coffee">
                         <img src="src/ui/icons/icon_coffee.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
                         <span class="text-[var(--mimoja-blue)] text-[24px] font-semibold mt-1">Coffee</span>
                     </button>
-                    <button id="ghc-water-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Dispense Hot Water">
+                    <button id="ghc-water-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px]  bg-[var(--profile-button-background-color)]" aria-label="Dispense Hot Water">
                         <img src="src/ui/icons/icon_water.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
                         <span class="text-[var(--mimoja-blue)] text-[24px] font-semibold mt-1">Water</span>
                     </button>
-                    <button id="ghc-steam-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Start Steam">
+                    <button id="ghc-steam-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px]  bg-[var(--profile-button-background-color)]" aria-label="Start Steam">
                         <img src="src/ui/icons/icon_steam.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
                         <span class="text-[var(--mimoja-blue)] text-[24px] font-semibold mt-1">Steam</span>
                     </button>
-                    <button id="ghc-flush-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px] border-2 border-[var(--mimoja-blue)] bg-[var(--box-color)]" aria-label="Flush">
+                    <button id="ghc-flush-btn" class="flex flex-col items-center justify-center w-[116px] h-[116px] rounded-[18px]  bg-[var(--profile-button-background-color)]" aria-label="Flush">
                         <img src="src/ui/icons/icon_flush.svg" alt="" class="w-[52px] h-[52px]" aria-hidden="true">
                         <span class="text-[var(--mimoja-blue)] text-[24px] font-semibold mt-1">Flush</span>
                     </button>
