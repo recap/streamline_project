@@ -251,9 +251,9 @@ export async function saveGrindToActiveProfile(grindValue) {
     }
 }
 
-const FAV_MAX_FONT = 28;
-const FAV_SINGLE_LINE_MIN = 22; // single-line shrink floor; below this switch to wrap
-const FAV_MIN_FONT = 18;        // overall floor (wrap mode)
+const FAV_MAX_FONT = 22;
+const FAV_SINGLE_LINE_MIN = 18; // single-line shrink floor; below this switch to wrap
+const FAV_MIN_FONT = 14;        // overall floor (wrap mode)
 
 function fitButtonText(button) {
     const text = button.textContent;

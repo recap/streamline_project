@@ -216,7 +216,7 @@ function makeEditable(element, onCommit) {
         input.type = 'number';
         input.value = currentValue;
         // Increased text size and made the input area bigger
-        input.className = 'text-[28px] font-bold text-center w-18 bg-transparent absolute border-2 border-[var(--mimoja-blue)] rounded-lg';
+        input.className = 'text-[22px] font-bold text-center w-18 bg-transparent absolute border-2 border-[var(--mimoja-blue)] rounded-lg';
         input.name = element.id; // Recommended for accessibility and autofill
         input.setAttribute('aria-label', element.getAttribute('data-i18n-key') || element.id);
 
@@ -286,17 +286,17 @@ export function updateHotWaterDisplay(data) {
     tempEl.textContent = `${currentHotWaterTemp}°C`;
 
     if (hotWaterMode === 'volume') {
-        volEl.classList.remove('text-[22px]');
-        volEl.classList.add('text-[28px]', 'font-bold', 'text-[var(--text-primary)]');
-        tempEl.classList.remove('text-[28px]', 'font-bold');
-        tempEl.classList.add('text-[22px]');
+        volEl.classList.remove('text-[16px]');
+        volEl.classList.add('text-[22px]', 'font-bold', 'text-[var(--text-primary)]');
+        tempEl.classList.remove('text-[22px]', 'font-bold');
+        tempEl.classList.add('text-[16px]');
         modeVolEl.className = 'text-[var(--mimoja-blue-v2)]';
         modeTempEl.className = 'text-[var(--low-contrast-white)]';
     } else { // temperature mode
-        tempEl.classList.remove('text-[22px]');
-        tempEl.classList.add('text-[28px]', 'font-bold', 'text-[var(--text-primary)]');
-        volEl.classList.remove('text-[28px]', 'font-bold');
-        volEl.classList.add('text-[22px]');
+        tempEl.classList.remove('text-[16px]');
+        tempEl.classList.add('text-[22px]', 'font-bold', 'text-[var(--text-primary)]');
+        volEl.classList.remove('text-[22px]', 'font-bold');
+        volEl.classList.add('text-[16px]');
         modeTempEl.className = 'text-[var(--mimoja-blue-v2)]';
         modeVolEl.className = 'text-[var(--low-contrast-white)]';
     }
@@ -485,17 +485,17 @@ export function updateSteamDisplay(data) {
     flowEl.textContent = `${currentSteamFlow.toFixed(1)}`;
 
     if (steamMode === 'time') {
-        durationEl.classList.remove('text-[22px]');
-        durationEl.classList.add('text-[28px]', 'font-bold', 'text-[var(--text-primary)]');
-        flowEl.classList.remove('text-[28px]', 'font-bold');
-        flowEl.classList.add('text-[22px]');
+        durationEl.classList.remove('text-[16px]');
+        durationEl.classList.add('text-[22px]', 'font-bold', 'text-[var(--text-primary)]');
+        flowEl.classList.remove('text-[22px]', 'font-bold');
+        flowEl.classList.add('text-[16px]');
         modeTimeEl.className = 'text-[var(--mimoja-blue-v2)]';
         modeFlowEl.className = 'text-[var(--low-contrast-white)]';
     } else { // flow mode
-        flowEl.classList.remove('text-[22px]');
-        flowEl.classList.add('text-[28px]', 'font-bold', 'text-[var(--text-primary)]');
-        durationEl.classList.remove('text-[28px]', 'font-bold');
-        durationEl.classList.add('text-[22px]');
+        flowEl.classList.remove('text-[16px]');
+        flowEl.classList.add('text-[22px]', 'font-bold', 'text-[var(--text-primary)]');
+        durationEl.classList.remove('text-[22px]', 'font-bold');
+        durationEl.classList.add('text-[16px]');
         modeFlowEl.className = 'text-[var(--mimoja-blue-v2)]';
         modeTimeEl.className = 'text-[var(--low-contrast-white)]';
     }

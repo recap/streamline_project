@@ -92,19 +92,19 @@ const chartData = JSON.parse(JSON.stringify(baseChartData));
 const baseLayout = {
     plot_bgcolor: '#0d0e14',
     paper_bgcolor: '#0d0e14',
-    font: { color: '#959595', size: 16 },
+    font: { color: '#606579', size: 14 },
     shapes: [], // Initialize shapes array for vertical lines
     xaxis: {
-        gridcolor: '#959595',
-        linecolor: '#959595', // Set line color for x-axis
-        tickcolor: '#959595', // Set tick color for x-axis
+        gridcolor: '#3D4255',
+        linecolor: '#606579',
+        tickcolor: '#606579',
         dtick: 1,
         fixedrange: true
     },
     yaxis: {
-        gridcolor: '#959595',
-        linecolor: '#959595', // Set line color for y-axis
-        tickcolor: '#959595', // Set tick color for y-axis
+        gridcolor: '#3D4255',
+        linecolor: '#606579',
+        tickcolor: '#606579',
         range: [0, 10],
         dtick: 1,
         fixedrange: true
@@ -125,18 +125,18 @@ const lightLayout = {
     ...baseLayout,
     plot_bgcolor: 'white',
     paper_bgcolor: 'white',
-    font: { color: '#E0E0E0', size: 16 },
+    font: { color: '#959595', size: 14 },
     xaxis: {
         ...baseLayout.xaxis,
         gridcolor: '#E0E0E0',
-        linecolor: '#E0E0E0',
-        tickcolor: '#E0E0E0'
+        linecolor: '#959595',
+        tickcolor: '#959595'
     },
     yaxis: {
         ...baseLayout.yaxis,
         gridcolor: '#E0E0E0',
-        linecolor: '#E0E0E0',
-        tickcolor: '#E0E0E0'
+        linecolor: '#959595',
+        tickcolor: '#959595'
     }
 };
 
