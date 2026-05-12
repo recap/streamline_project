@@ -251,6 +251,55 @@ export async function saveGrindToActiveProfile(grindValue) {
     }
 }
 
+const FAV_MAX_FONT = 28;
+const FAV_SINGLE_LINE_MIN = 22; // single-line shrink floor; below this switch to wrap
+const FAV_MIN_FONT = 18;        // overall floor (wrap mode)
+
+function fitButtonText(button) {
+    const text = button.textContent;
+    if (!text || !text.trim()) return;
+
+    const padX = 16; // px-2 = 8px each side
+    const padY = 8;
+    const maxWidth = button.offsetWidth - padX;
+    const maxHeight = button.offsetHeight - padY;
+
+    const span = document.createElement('span');
+    span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-weight:600;line-height:1.25;';
+    span.textContent = text;
+    document.body.appendChild(span);
+
+    // Try single-line shrink down to FAV_SINGLE_LINE_MIN.
+    let fontSize = 0;
+    for (let f = FAV_MAX_FONT; f >= FAV_SINGLE_LINE_MIN; f -= 2) {
+        span.style.fontSize = f + 'px';
+        if (span.offsetWidth <= maxWidth) {
+            fontSize = f;
+            break;
+        }
+    }
+
+    // If single-line didn't fit even at FAV_SINGLE_LINE_MIN, switch to wrap mode
+    // and pick the largest font from FAV_SINGLE_LINE_MIN down to FAV_MIN_FONT
+    // whose wrapped height fits the button.
+    if (!fontSize) {
+        span.style.whiteSpace = 'normal';
+        span.style.width = maxWidth + 'px';
+        span.style.textWrap = 'balance';
+        fontSize = FAV_MIN_FONT;
+        for (let f = FAV_SINGLE_LINE_MIN; f >= FAV_MIN_FONT; f -= 2) {
+            span.style.fontSize = f + 'px';
+            if (span.offsetHeight <= maxHeight) {
+                fontSize = f;
+                break;
+            }
+        }
+    }
+
+    document.body.removeChild(span);
+    button.style.fontSize = fontSize + 'px';
+}
+
 export function updateButtonUI() {
     for (let i = 0; i < FAV_COUNT; i++) {
         const button = favoriteButtons[i];
@@ -258,13 +307,27 @@ export function updateButtonUI() {
         const profileRecord = availableProfiles[profileKey];
 
         if (button && profileRecord && profileRecord.profile) {
-            const translatedTitle = translateProfileTitle(profileRecord.profile.title);
+            let translatedTitle = translateProfileTitle(profileRecord.profile.title);
+            // Strip category prefix: any " / " (space-slash-space) is treated as a
+            // category delimiter — keep only the tail. Covers "A. Espresso-Advanced /",
+            // "A-Flow /", "B. Espresso-Pressure /" etc.
+            if (translatedTitle && translatedTitle.includes(' / ')) {
+                translatedTitle = translatedTitle.split(' / ').pop();
+            }
+            // Strip short uppercase tag prefix like "GHC/", "DE1/" without spaces.
+            // Requires 2+ uppercase/digit chars so "A/B testing" or "Light/Medium" stay intact.
+            if (translatedTitle) {
+                translatedTitle = translatedTitle.replace(/^[A-Z][A-Z0-9]+\s*\/\s*/, '');
+            }
             button.textContent = translatedTitle || 'Untitled';
+            button.style.fontSize = '';
+            fitButtonText(button);
             button.classList.remove('text-white', 'bg-[var(--mimoja-blue-v2)]');
             button.classList.add('text-[var(--mimoja-blue)]', 'text-[var(--profile-button-text-color)]', 'bg-[var(--profile-button-background-color)]');
         }
         else if (button) {
             button.textContent = '';
+            button.style.fontSize = '';
             button.classList.remove('text-white', 'bg-[var(--mimoja-blue-v2)]');
             button.classList.add('text-[var(--mimoja-blue)]', 'text-[var(--profile-button-text-color)]', 'bg-[var(--profile-button-background-color)]');
         }

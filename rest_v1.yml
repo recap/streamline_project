@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Rea Prime Rest API
+  title: Decent API
   version: 1.0.0
   description: |
     This API provides endpoints to retrieve a list of Bluetooth devices, trigger a scan for new devices, manage DE1 espresso machine state and settings, and interact with a connected scale.
@@ -208,6 +208,147 @@ paths:
       responses:
         "200":
           description: Shot settings updated successfully
+  /api/v1/machine/capabilities:
+    get:
+      summary: List machine capabilities
+      description: |
+        Returns the optional capability surfaces the currently connected
+        machine exposes. Plain DE1s return an empty list; Bengle returns
+        `["cupWarmer", "integratedScale"]` plus any future capabilities
+        (LED strip, milk probe) as they ship. Skins should query this
+        endpoint once after connect to decide which UI to render and
+        which `/api/v1/machine/...` capability endpoints to call.
+      tags: [Machine]
+      responses:
+        "200":
+          description: Capability list for the currently connected machine
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachineCapabilities"
+  /api/v1/machine/cupWarmer:
+    get:
+      summary: Get cup-warmer setpoint
+      description: |
+        Read the current cup-warmer mat target temperature in °C.
+        Returns 404 when the connected machine is not a Bengle.
+      tags: [Machine]
+      responses:
+        "200":
+          description: Current cup-warmer setpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CupWarmerState"
+        "404":
+          description: Machine connected but does not support cup warmer
+    put:
+      summary: Set cup-warmer setpoint
+      description: |
+        Set the cup-warmer mat target temperature in °C. Range
+        `0.0`–`80.0`; `0.0` turns the mat off (there is no separate
+        enable flag). Out-of-range values return 400; the app does not
+        rely on FW-side clamping so callers see immediate feedback.
+        Returns 404 when the connected machine is not a Bengle.
+      tags: [Machine]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CupWarmerState"
+      responses:
+        "200":
+          description: Setpoint accepted
+        "400":
+          description: Temperature missing or out of range 0.0–80.0
+        "404":
+          description: Machine connected but does not support cup warmer
+  /api/v1/machine/ledStrip:
+    get:
+      summary: Get LED strip configuration
+      description: |
+        Read the current LED strip configuration (all 3 zones × 2 modes)
+        from the in-memory cache. Returns 404 when the connected
+        machine is not a Bengle.
+      tags: [Machine]
+      responses:
+        "200":
+          description: Current LED strip configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedStripState"
+        "404":
+          description: Machine connected but does not support LED strip
+    put:
+      summary: Set LED strip configuration
+      description: |
+        Write a full LED strip configuration (all 3 zones × 2 modes).
+        Updates cache and pushes to FW live registers. Does NOT persist
+        to NVM — call `/commit` separately. Returns 404 when the
+        connected machine is not a Bengle.
+      tags: [Machine]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LedStripState"
+      responses:
+        "200":
+          description: Configuration accepted
+        "400":
+          description: Invalid request body
+        "404":
+          description: Machine connected but does not support LED strip
+
+  /api/v1/machine/ledStrip/commit:
+    post:
+      summary: Commit LED strip config to NVM
+      description: |
+        Persist the current in-memory LED strip configuration to FW
+        non-volatile memory. The machine retains settings across power
+        cycles. Returns 404 when the connected machine is not a Bengle.
+      tags: [Machine]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example: {}
+      responses:
+        "202":
+          description: Commit accepted
+        "404":
+          description: Machine connected but does not support LED strip
+
+  /api/v1/machine/ledStrip/reset:
+    post:
+      summary: Reset LED strip cache from NVM
+      description: |
+        Reload the LED strip cache from FW non-volatile memory,
+        dropping any uncommitted changes. Returns the refreshed
+        configuration. Returns 404 when the connected machine is not
+        a Bengle.
+      tags: [Machine]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example: {}
+      responses:
+        "200":
+          description: Reset completed, returns refreshed state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedStripState"
+        "404":
+          description: Machine connected but does not support LED strip
   /api/v1/machine/settings:
     get:
       summary: Get machine settings
@@ -313,7 +454,7 @@ paths:
         "200":
           description: Firmware update successful. Need to restart machine to load new firmware
         "500":
-          description: Something went wrong during the firmware upgrade process. Check the response and Rea logs
+          description: Something went wrong during the firmware upgrade process. Check the response and Decent logs
 
   # Scale API
   /api/v1/scale/tare:
@@ -363,8 +504,8 @@ paths:
   # Sensors API handling
   /api/v1/sensors:
     get:
-      summary: Get a list of sensor devices connected to Rea
-      description: Will show all the sensors and their ids, that are currently connected and available through Rea
+      summary: Get a list of sensor devices connected to Decent
+      description: Will show all the sensors and their ids, that are currently connected and available through Decent
       tags: [Sensors]
       responses:
         "200":
@@ -442,17 +583,17 @@ paths:
   # REA settings API
   /api/v1/settings:
     get:
-      summary: Get Rea settings
-      tags: [REA Settings]
+      summary: Get Decent settings
+      tags: [Decent Settings]
       responses:
         "200":
-          description: Rea settings
+          description: Decent settings
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReaSettings"
     post:
-      summary: Update Rea settings
+      summary: Update Decent settings
       tags: [REA Settings]
       requestBody:
         required: true
@@ -462,7 +603,7 @@ paths:
               $ref: "#/components/schemas/ReaSettingsRequest"
       responses:
         "200":
-          description: Rea settings updated successfully
+          description: Decent settings updated successfully
 
   # REA Workflow API
   /api/v1/workflow:
@@ -3142,7 +3283,7 @@ paths:
             Content-Disposition:
               schema:
                 type: string
-              description: 'attachment; filename="streamline_bridge_export_{timestamp}.zip"'
+              description: 'attachment; filename="decent_export_{timestamp}.zip"'
         "500":
           description: Internal server error
   /api/v1/data/import:
@@ -3432,6 +3573,73 @@ components:
         extra:
           type: object
           description: various extra information
+
+    MachineCapabilities:
+      type: object
+      required: [capabilities]
+      properties:
+        capabilities:
+          type: array
+          description: |
+            Capability identifiers supported by the currently connected
+            machine. Plain DE1 returns an empty array. Bengle returns
+            `cupWarmer` and `integratedScale`. Future Bengle peripherals
+            (LED strip, milk probe) will append their identifiers as
+            they ship.
+          items:
+            type: string
+            enum: [cupWarmer, integratedScale, ledStrip]
+          example: [cupWarmer, integratedScale, ledStrip]
+
+    CupWarmerState:
+      type: object
+      required: [temperature]
+      properties:
+        temperature:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 80.0
+          description: |
+            Cup-warmer mat target temperature in °C. `0.0` turns the
+            mat off — there is no separate enable flag.
+          example: 60.0
+
+    LedStripState:
+      type: object
+      properties:
+        frontStrip:
+          $ref: "#/components/schemas/ZoneLedState"
+          description: Front LED strip (both sleeping and awake colours)
+        backStrip:
+          $ref: "#/components/schemas/ZoneLedState"
+          description: Back LED strip (both sleeping and awake colours)
+        frontSwitch:
+          $ref: "#/components/schemas/ZoneLedState"
+          description: Front switch LED (both sleeping and awake colours)
+
+    ZoneLedState:
+      type: object
+      properties:
+        sleeping:
+          $ref: "#/components/schemas/Color16"
+          description: Colour when the machine is in sleeping state
+        awake:
+          $ref: "#/components/schemas/Color16"
+          description: Colour when the machine is awake (any non-sleeping state)
+      example:
+        sleeping: "0000FFFF0000"
+        awake: "FFFF80000000"
+
+    Color16:
+      type: string
+      pattern: '^[0-9A-Fa-f]{12}$'
+      description: |
+        16-bit per-channel RGB colour as a 12-character hex string.
+        Format: `RRRRGGGGBBBB` (4 hex digits per channel, upper-case
+        preferred, case-insensitive). Missing / non-hex / wrong length
+        → treated as black (`000000000000`).
+      example: FFFF80000000
 
     ScaleSnapshot:
       type: object
@@ -3749,7 +3957,7 @@ components:
       type: object
       properties:
         gatewayMode:
-          description: Control whether Rea acts as gateway. Disabled means gateway is disabled, full means full gateway mode. Tracking means rea will not show graphs, but will control the shot (stop at weight)
+          description: Control whether Decent acts as gateway. Disabled means gateway is disabled, full means full gateway mode. Tracking means decent will not show graphs, but will control the shot (stop at weight)
           type: string
           enum: ["disabled", "full", "tracking"]
           nullable: true
@@ -3836,7 +4044,7 @@ components:
       type: object
       properties:
         gatewayMode:
-          description: Control whether Rea acts as gateway. Disabled means gateway is disabled, full means full gateway mode. Tracking means rea will not show graphs, but will control the shot (stop at weight)
+          description: Control whether Decent acts as gateway. Disabled means gateway is disabled, full means full gateway mode. Tracking means decent will not show graphs, but will control the shot (stop at weight)
           type: string
           enum: ["disabled", "full", "tracking"]
         webUiPath:

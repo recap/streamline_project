@@ -1450,11 +1450,11 @@ function renderSettingsTab() {
 
     // Create 3 column containers
     const leftCol = document.createElement('div');
-    leftCol.className = 'flex flex-col gap-[24px]';
+    leftCol.className = 'flex flex-col gap-[45px]';
     leftCol.style.width = '25%';
 
     const middleCol = document.createElement('div');
-    middleCol.className = 'flex flex-col gap-[24px]';
+    middleCol.className = 'flex flex-col gap-[45px]';
     middleCol.style.width = '25%';
 
     const rightCol = document.createElement('div');

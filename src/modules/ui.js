@@ -1212,11 +1212,16 @@ export function updateMachineStatus(data) {
     const isNeedsWaterState = status?.toLowerCase().includes('needs water') ||
                                 status?.toLowerCase().includes('need')||
                              substate?.toLowerCase().includes('needs water');
+    // pouringDone is the post-action tail (e.g. steam auto-purge). DE1 keeps
+    // state='steam' during this window but the user-visible action is over —
+    // exit the steam counter immediately rather than counting through the purge.
+    const isPouringDone = substate === 'pouringDone';
+
     // Flush should take priority over preinfusion/pouring when both match,
     // e.g. "Flush (Pouring)" should be treated as a flush state, not a shot pour.
-    const isCurrentlyFlushState = isFlushState;
-    const isCurrentlySteamState = isSteamState;
-    const isCurrentlyHotWaterState = isHotWaterState;
+    const isCurrentlyFlushState = isFlushState && !isPouringDone;
+    const isCurrentlySteamState = isSteamState && !isPouringDone;
+    const isCurrentlyHotWaterState = isHotWaterState && !isPouringDone;
 
     // When we're in a steam, hot water, or flush state, we must NOT treat it as
     // preinfusion/pouring, otherwise the shot timer interval will keep
@@ -1251,6 +1256,33 @@ export function updateMachineStatus(data) {
     if (!isCurrentlyFlushState && machineStatusEl.flushIntervalId) {
         clearInterval(machineStatusEl.flushIntervalId);
         delete machineStatusEl.flushIntervalId;
+    }
+
+    // Steam/flush/hotwater pouringDone is the post-action tail (e.g. auto-purge).
+    // Freeze the last counter value so the UI doesn't keep ticking through the
+    // purge, and don't fall into the espresso pouring branch. Once state leaves
+    // steam/flush/hotwater, the normal path renders Ready.
+    if (isPouringDone && (isSteamState || isFlushState || isHotWaterState)) {
+        if (isSteamState) {
+            const steamText = getTranslation('Steaming');
+            const frozenValue = typeof machineStatusEl.currentSteamValue === 'number'
+                ? machineStatusEl.currentSteamValue
+                : 0;
+            machineStatusEl.innerHTML = `<span class="text-[var(--status-ready-green)]">${steamText}:</span> <span class="text-[var(--status-clickable-color)]">${frozenValue}s</span>`;
+        } else if (isFlushState) {
+            const flushText = getTranslation('Flush');
+            const frozenValue = typeof machineStatusEl.currentFlushValue === 'number'
+                ? machineStatusEl.currentFlushValue
+                : 0;
+            machineStatusEl.innerHTML = `<span class="text-[var(--status-ready-green)]">${flushText}:</span> <span class="text-[var(--status-clickable-color)]">${frozenValue}s</span>`;
+        } else {
+            const pouringText = getTranslation('Pouring');
+            const mlText = (hotWaterVolValueEl && hotWaterVolValueEl.textContent)
+                ? hotWaterVolValueEl.textContent.trim()
+                : '';
+            machineStatusEl.innerHTML = `<span class="text-[var(--status-green-color)]">${pouringText}:</span> <span class="text-[var(--status-clickable-color)]">${mlText}</span>`;
+        }
+        return;
     }
 
     // Check if this is a heating state with time remaining and apply special formatting
@@ -1982,8 +2014,7 @@ export function showGhcControls() {
     const status = document.getElementById('machine-status');
     if (status) {
         status.style.right = '200px'; // 172px GHC + 20px gap
-        status.style.width = '384px'; // shrink from 556px so it fits 1268px left column
-        status.style.fontSize = '26px'; // reduce from 34px so long strings like "Espresso Heating: Please Wait" fit
+        status.style.width = 'auto';  // size to content; right edge stays anchored, box grows leftward
     }
 
     // Shrink Pressure column so it doesn't overlap GHC
