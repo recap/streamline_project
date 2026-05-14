@@ -128,8 +128,7 @@
 
 .numpad-modal-input-box {
     position: relative;
-    width: 100%;
-    max-width: 440px;
+    width: 440px;
     height: 110px;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -481,7 +480,7 @@
     }
     
     .numpad-modal-input-box {
-        max-width: 450px;
+        width: 450px;
         height: 96px;
     }
 }

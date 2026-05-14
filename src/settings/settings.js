@@ -4,6 +4,7 @@ import { initScaling } from '../modules/scaling.js';
 import { getSupportedLanguages, getCurrentLanguage, setLanguage } from '../modules/i18n.js';
 import { loadPage } from '../modules/router.js'; // Singular and correctly formatted import
 import { logger } from '../modules/logger.js';
+import { openNotesModal } from '../modules/notes-modal.js';
 
 // Enhanced cache for settings data with loading states
 let settingsCache = {
@@ -122,6 +123,12 @@ function updateSettingsContentArea(category) {
         if (category === 'fontsize') {
             setTimeout(initFontSizeSettings, 0);
         }
+        if (category === 'feedback') {
+            setTimeout(() => window.updateDecentAccountUI?.(), 0);
+        }
+        if (category === 'talkdecent') {
+            setTimeout(() => window.updateTalkToDecentUI?.(), 0);
+        }
     }
 }
 
@@ -212,7 +219,7 @@ const settingsTree = {
     'usermanual': {
         name: 'User Manual',
         subcategories: [
-            { id: 'onlinehelp', name: 'Help & Tutorials', settingsCategory: 'help' },
+            { id: 'talkdecent', name: 'Talk to Decent', settingsCategory: 'talkdecent' },
             { id: 'feedback', name: 'Send Feedback', settingsCategory: 'feedback' }
         ]
     }
@@ -489,6 +496,8 @@ export function renderSettingsContent(category) {
             return renderFirmwareUpdateSettings();
         case 'feedback':
             return renderFeedbackSettings();
+        case 'talkdecent':
+            return renderTalkToDecentSettings();
         case 'usermanual':
         case 'onlinehelp':
         case 'tutorials':
@@ -1152,112 +1161,240 @@ export function renderUserManualSettings() {
     `;
 }
 
+export function renderTalkToDecentSettings() {
+    return `
+        <div class="content-stretch flex flex-col gap-[48px] items-start relative w-full">
+
+            <!-- Header -->
+            <div class="flex flex-col gap-[8px] w-full">
+                <div class="flex items-center gap-[16px]">
+                    <div class="w-[48px] h-[48px] rounded-full bg-[#385a92] flex items-center justify-center flex-shrink-0">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[36px] font-semibold text-[var(--text-primary)] leading-[1.1]">Talk to Decent</p>
+                        <p class="text-[20px] text-[var(--low-contrast-white)] leading-[1.3]">Direct line to the Decent support team</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Not logged in state -->
+            <div id="talkdecent-logged-out" class="w-full">
+                <div class="flex flex-col gap-[24px] p-[36px] rounded-[20px] border-2 border-dashed border-[var(--profile-button-outline-color)] bg-[var(--box-color)] items-center text-center">
+                    <div class="w-[64px] h-[64px] rounded-full bg-[var(--button-grey)] flex items-center justify-center">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="currentColor" class="text-[var(--low-contrast-white)]"/>
+                            <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="currentColor" class="text-[var(--low-contrast-white)]"/>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col gap-[8px]">
+                        <p class="text-[26px] font-bold text-[var(--text-primary)]">Sign in with your Decent account</p>
+                        <p class="text-[22px] text-[var(--low-contrast-white)] max-w-[500px] leading-[1.4]">
+                            Your message goes directly to Decent's support team, linked to your registered machine.
+                        </p>
+                    </div>
+                    <div class="flex gap-[12px] w-full max-w-[520px]">
+                        <input id="talkdecent-email-input" type="email" placeholder="your@email.com"
+                               class="flex-1 h-[60px] px-[20px] rounded-[12px] text-[22px] bg-[var(--box-color)] border-2 border-[#385a92] text-[var(--text-primary)] outline-none">
+                        <input id="talkdecent-password-input" type="password" placeholder="Password"
+                               class="flex-1 h-[60px] px-[20px] rounded-[12px] text-[22px] bg-[var(--box-color)] border-2 border-[#385a92] text-[var(--text-primary)] outline-none">
+                    </div>
+                    <div class="flex items-center gap-[16px]">
+                        <button onclick="window.talkDecentLogin()"
+                                class="h-[56px] px-[40px] rounded-[56px] bg-[#385a92] text-white text-[22px] font-semibold transition-opacity hover:opacity-90">
+                            Sign in
+                        </button>
+                        <span id="talkdecent-login-status" class="text-[20px] text-[var(--low-contrast-white)]"></span>
+                    </div>
+                    <p class="text-[18px] text-[var(--low-contrast-white)] opacity-60">
+                        Already signed in via Send Feedback? <button onclick="window.talkDecentSyncFromFeedback()" class="text-[#385a92] underline">Use that account</button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Logged in / compose state -->
+            <div id="talkdecent-logged-in" class="hidden w-full flex flex-col gap-[36px]">
+
+                <!-- Account badge -->
+                <div class="flex items-center justify-between p-[20px] rounded-[14px] bg-[var(--box-color)] border border-[var(--profile-button-outline-color)]">
+                    <div class="flex items-center gap-[14px]">
+                        <div class="w-[40px] h-[40px] rounded-full bg-[#385a92] flex items-center justify-center text-white text-[18px] font-bold" id="talkdecent-avatar">D</div>
+                        <div>
+                            <p class="text-[20px] font-semibold text-[var(--text-primary)]" id="talkdecent-account-email">—</p>
+                            <p class="text-[18px] text-[var(--low-contrast-white)]" id="talkdecent-account-serial"></p>
+                        </div>
+                    </div>
+                    <button onclick="window.talkDecentLogout()"
+                            class="h-[40px] px-[20px] rounded-[40px] bg-[var(--button-grey)] text-[var(--text-primary)] text-[18px]">
+                        Sign out
+                    </button>
+                </div>
+
+                <!-- Compose -->
+                <div class="flex flex-col gap-[28px] w-full">
+                    <div class="flex flex-col gap-[12px]">
+                        <label class="text-[22px] font-bold text-[#385a92]">Subject</label>
+                        <input id="talkdecent-subject" type="text"
+                               placeholder="What can we help you with?"
+                               class="h-[64px] px-[24px] rounded-[12px] text-[22px] bg-[var(--box-color)] border-2 border-[#385a92] text-[var(--text-primary)] outline-none w-full">
+                    </div>
+                    <div class="flex flex-col gap-[12px]">
+                        <label class="text-[22px] font-bold text-[#385a92]">Message</label>
+                        <textarea id="talkdecent-message" class="hidden"></textarea>
+                        <div id="talkdecent-message-preview"
+                             onclick="window.openTalkDecentMessageEditor()"
+                             class="cursor-pointer rounded-[14px] p-[20px] text-[21px] bg-[var(--box-color)] border-2 border-[#385a92] w-full min-h-[110px] whitespace-pre-wrap select-none text-[var(--low-contrast-white)]">
+                            Tap to write message…
+                        </div>
+                    </div>
+                    <!-- Attach machine info toggle -->
+                    <div class="flex items-center justify-between p-[20px] rounded-[12px] bg-[var(--box-color)] border border-[var(--profile-button-outline-color)]">
+                        <div class="flex flex-col gap-[4px]">
+                            <p class="text-[22px] font-bold text-[#385a92]">Attach Machine Info</p>
+                            <p class="text-[20px] text-[var(--low-contrast-white)]">Appends machine model, firmware version, and serial number</p>
+                        </div>
+                        <input type="checkbox" id="talkdecent-attach-machine" checked
+                               class="toggle toggle-lg toggle-primary">
+                    </div>
+                    <div class="flex items-center gap-[20px]">
+                        <button id="talkdecent-send-btn"
+                                onclick="window.sendDecentMessage()"
+                                class="h-[64px] px-[48px] rounded-[64px] bg-[#385a92] text-white text-[24px] font-bold transition-opacity hover:opacity-90">
+                            Send Message
+                        </button>
+                        <span id="talkdecent-send-status" class="text-[22px] leading-[1.4]"></span>
+                    </div>
+                </div>
+
+                <!-- Previous messages note -->
+                <div class="p-[20px] rounded-[12px] bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] flex items-start gap-[14px]">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="flex-shrink-0 mt-[2px]" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="#385a92" stroke-width="2"/>
+                        <path d="M12 7V13M12 16V17" stroke="#385a92" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <p class="text-[20px] text-[var(--low-contrast-white)] leading-[1.4]">
+                        Replies will be sent to your Decent account email. You can view your full conversation history at
+                        <a href="https://decentespresso.com/support/" target="_blank" class="text-[#385a92] underline">decentespresso.com/support/</a>.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    `;
+}
+
 // Render Feedback / bug report page
-// Bot token with Issues: write scope on allofmeng/streamline_project only.
-// Fine-grained PAT — replace this value after creating the token on GitHub.
-const FEEDBACK_BOT_TOKEN = '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';
 
 export function renderFeedbackSettings() {
     const categories = [
-        { value: 'bug',         label: 'Bug Report',       sub: 'Something isn\'t working' },
-        { value: 'enhancement', label: 'Feature Request',  sub: 'Suggest an improvement'   },
-        { value: 'question',    label: 'General Feedback', sub: 'Share thoughts or ideas'   },
+        { value: 'bug',      label: 'Bug Report',       sub: 'Something isn\'t working' },
+        { value: 'feature',  label: 'Feature Request',  sub: 'Suggest an improvement'   },
+        { value: 'question', label: 'General Feedback', sub: 'Share thoughts or ideas'  },
     ];
 
     const categoryCards = categories.map(({ value, label, sub }) => `
         <button data-feedback-card="${value}"
                 aria-pressed="${value === 'bug'}"
                 onclick="window.selectFeedbackCategory('${value}')"
-                class="flex flex-col items-start gap-[6px] p-[20px] rounded-[14px] border-2 transition-colors
+                class="flex flex-col items-start gap-[4px] p-[14px] rounded-[12px] border-2 transition-colors
                        ${value === 'bug'
                            ? 'bg-[#385a92] border-[#385a92] text-white'
                            : 'bg-[var(--box-color)] border-[var(--profile-button-outline-color)] text-[var(--text-primary)]'}">
-            <span class="text-[22px] font-bold leading-tight">${label}</span>
-            <span class="text-[18px] opacity-75 leading-tight">${sub}</span>
+            <span class="text-[20px] font-bold leading-tight">${label}</span>
+            <span class="text-[16px] opacity-75 leading-tight">${sub}</span>
         </button>
     `).join('');
 
     return `
-        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
-            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Send Feedback</p>
+        <div class="content-stretch flex flex-col gap-[24px] items-start relative w-full">
+            <p class="font-semibold text-[var(--text-primary)] text-[32px] w-full text-center">Send Feedback</p>
+
+            <!-- Decent Account -->
+            <div id="decent-account-section" class="flex flex-col gap-[12px] w-full p-[18px] rounded-[12px] bg-[var(--box-color)] border border-[var(--profile-button-outline-color)]">
+                <p class="font-bold text-[#385a92] text-[22px]">Decent Account</p>
+
+                <div id="decent-logged-out">
+                    <p class="text-[19px] text-[var(--low-contrast-white)] mb-[10px]">Sign in to tag your feedback with your Decent account.</p>
+                    <div class="flex gap-[10px] mb-[10px]">
+                        <input id="decent-email-input" type="email" placeholder="your@email.com"
+                               class="flex-1 h-[50px] px-[16px] rounded-[10px] text-[20px] bg-[var(--box-color)] border-2 border-[#385a92] text-[var(--text-primary)]">
+                        <input id="decent-password-input" type="password" placeholder="Password"
+                               class="flex-1 h-[50px] px-[16px] rounded-[10px] text-[20px] bg-[var(--box-color)] border-2 border-[#385a92] text-[var(--text-primary)]">
+                    </div>
+                    <div class="flex items-center gap-[12px]">
+                        <button onclick="window.decentLogin()"
+                                class="h-[46px] px-[24px] rounded-[46px] bg-[#385a92] text-white text-[20px] font-semibold">
+                            Sign in
+                        </button>
+                        <span id="decent-login-status" class="text-[20px]"></span>
+                    </div>
+                </div>
+
+                <div id="decent-logged-in" class="hidden">
+                    <p class="text-[20px] text-[var(--text-primary)]">
+                        Signed in as <span id="decent-account-email" class="font-bold text-[#385a92]"></span>
+                    </p>
+                    <p id="decent-account-serial" class="text-[18px] text-[var(--low-contrast-white)] mt-[4px]"></p>
+                    <button onclick="window.decentLogout()"
+                            class="mt-[10px] h-[42px] px-[18px] rounded-[42px] bg-[var(--button-grey)] text-[var(--text-primary)] text-[18px]">
+                        Sign out
+                    </button>
+                </div>
             </div>
 
             <!-- Category -->
-            <div class="flex flex-col gap-[20px] w-full">
-                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                    <p class="leading-[1.2]">Category</p>
-                </div>
+            <div class="flex flex-col gap-[10px] w-full">
+                <p class="font-bold text-[#385a92] text-[22px]">Category</p>
                 <input type="hidden" id="feedback-category" value="bug">
-                <div class="grid grid-cols-3 gap-[16px] w-full">
+                <div class="grid grid-cols-3 gap-[10px] w-full">
                     ${categoryCards}
                 </div>
             </div>
 
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
             <!-- Title -->
-            <div class="flex flex-col gap-[20px] w-full">
-                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                    <p class="leading-[1.2]">Title</p>
-                </div>
+            <div class="flex flex-col gap-[8px] w-full">
+                <p class="font-bold text-[#385a92] text-[22px]">Title</p>
                 <input type="text" id="feedback-title"
-                       class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-full text-[var(--text-primary)] text-[24px] px-[28px]"
+                       class="bg-[var(--box-color)] border-2 border-[#385a92] h-[54px] rounded-[54px] w-full text-[var(--text-primary)] text-[22px] px-[24px]"
                        placeholder="Short summary of your feedback…">
             </div>
 
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
             <!-- Contact email (optional) -->
-            <div class="flex flex-col gap-[20px] w-full">
-                <div class="flex flex-col gap-[8px]">
-                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                        <p class="leading-[1.2]">Contact Email <span class="text-[22px] font-normal opacity-60">(optional)</span></p>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
-                        Leave your email if you'd like a follow-up on this report
-                    </p>
-                </div>
+            <div class="flex flex-col gap-[8px] w-full">
+                <p class="font-bold text-[#385a92] text-[22px]">Contact Email <span class="text-[19px] font-normal opacity-60">(optional)</span></p>
                 <input type="email" id="feedback-email"
-                       class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-full text-[var(--text-primary)] text-[24px] px-[28px]"
+                       class="bg-[var(--box-color)] border-2 border-[#385a92] h-[54px] rounded-[54px] w-full text-[var(--text-primary)] text-[22px] px-[24px]"
                        placeholder="your@email.com">
             </div>
 
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
             <!-- Description -->
-            <div class="flex flex-col gap-[20px] w-full">
-                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                    <p class="leading-[1.2]">Description</p>
+            <div class="flex flex-col gap-[8px] w-full">
+                <p class="font-bold text-[#385a92] text-[22px]">Description</p>
+                <textarea id="feedback-description" class="hidden"></textarea>
+                <div id="feedback-description-preview"
+                     onclick="window.openFeedbackDescriptionEditor()"
+                     class="cursor-pointer bg-[var(--box-color)] border-2 border-[#385a92] rounded-[14px] w-full min-h-[110px] text-[21px] p-[18px] whitespace-pre-wrap select-none text-[var(--low-contrast-white)]">
+                    Tap to write description…
                 </div>
-                <textarea id="feedback-description"
-                          class="bg-[var(--box-color)] border-2 border-[#385a92] rounded-[14px] w-full min-h-[220px] text-[var(--text-primary)] text-[24px] p-[24px] resize-none"
-                          placeholder="Describe the issue or feedback in detail…"></textarea>
             </div>
-
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
             <!-- System info toggle -->
             <div class="flex items-center justify-between w-full">
-                <div class="flex flex-col gap-[8px]">
-                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                        <p class="leading-[1.2]">Attach System Info</p>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
-                        Appends app version and machine firmware to the report
-                    </p>
+                <div class="flex flex-col gap-[4px]">
+                    <p class="font-bold text-[#385a92] text-[22px]">Attach System Info</p>
+                    <p class="text-[var(--text-primary)] text-[19px]">Appends app version and machine firmware to the report</p>
                 </div>
                 <input type="checkbox" id="feedback-attach-sysinfo" checked
                        class="toggle toggle-lg toggle-primary">
             </div>
 
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
             <!-- Submit -->
-            <div class="flex flex-col gap-[20px] w-full">
+            <div class="flex flex-col gap-[12px] w-full">
                 <button id="feedback-submit-btn"
                         onclick="window.submitFeedback()"
-                        class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold self-start">
+                        class="bg-[#385a92] h-[54px] px-[40px] rounded-[54px] text-white text-[22px] font-bold self-start">
                     Submit
                 </button>
                 <div id="feedback-status" class="text-[22px] leading-[1.4]"></div>
@@ -3779,6 +3916,247 @@ export async function initializeSettings() {
         }
     };
 
+    window.talkDecentLogin = async function() {
+        const email    = (document.getElementById('talkdecent-email-input')?.value || '').trim();
+        const password = document.getElementById('talkdecent-password-input')?.value || '';
+        const statusEl = document.getElementById('talkdecent-login-status');
+        if (!email || !password) {
+            if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Enter email and password.</span>';
+            return;
+        }
+        if (statusEl) statusEl.textContent = 'Signing in…';
+        try {
+            const authHeader = 'Basic ' + btoa(`${email}:${password}`);
+            const res = await fetch('https://decentespresso.com/support/api/login_test', {
+                headers: { 'Authorization': authHeader }
+            });
+            const text = (await res.text()).trim();
+            if (!res.ok || text === '0' || text === '') throw new Error('Invalid credentials');
+            const cryptpw = text;
+            localStorage.setItem('decentEmail', email);
+            localStorage.setItem('decentCryptpw', cryptpw);
+            try {
+                const snRes = await fetch('https://decentespresso.com/support/api/sn', {
+                    headers: { 'Authorization': 'Basic ' + btoa(`${email}:${cryptpw}`) }
+                });
+                const snText = (await snRes.text()).trim();
+                const serial = snText.split(/[\r\n]/)[0].trim();
+                localStorage.setItem('decentSerial', serial || '');
+            } catch (_) {
+                localStorage.setItem('decentSerial', '');
+            }
+            document.getElementById('talkdecent-password-input').value = '';
+            window.updateTalkToDecentUI();
+        } catch (err) {
+            if (statusEl) statusEl.innerHTML = `<span class="text-red-500 text-[20px]">${err.message}</span>`;
+        }
+    };
+
+    window.talkDecentLogout = function() {
+        localStorage.removeItem('decentEmail');
+        localStorage.removeItem('decentCryptpw');
+        localStorage.removeItem('decentSerial');
+        window.updateTalkToDecentUI();
+        window.updateDecentAccountUI?.();
+    };
+
+    window.talkDecentSyncFromFeedback = function() {
+        const email = localStorage.getItem('decentEmail');
+        if (email) {
+            window.updateTalkToDecentUI();
+        } else {
+            const statusEl = document.getElementById('talkdecent-login-status');
+            if (statusEl) statusEl.innerHTML = '<span class="text-red-500 text-[20px]">No Decent account signed in yet. Use the fields above.</span>';
+        }
+    };
+
+    window.updateTalkToDecentUI = function() {
+        const email     = localStorage.getItem('decentEmail');
+        const serial    = localStorage.getItem('decentSerial');
+        const loggedOut = document.getElementById('talkdecent-logged-out');
+        const loggedIn  = document.getElementById('talkdecent-logged-in');
+        if (!loggedOut || !loggedIn) return;
+        if (email) {
+            loggedOut.classList.add('hidden');
+            loggedIn.classList.remove('hidden');
+            const emailEl = document.getElementById('talkdecent-account-email');
+            if (emailEl) emailEl.textContent = email;
+            const avatarEl = document.getElementById('talkdecent-avatar');
+            if (avatarEl) avatarEl.textContent = email[0].toUpperCase();
+            const serialEl = document.getElementById('talkdecent-account-serial');
+            if (serialEl) serialEl.textContent = serial ? `Serial: ${serial}` : '';
+        } else {
+            loggedIn.classList.add('hidden');
+            loggedOut.classList.remove('hidden');
+        }
+    };
+
+    window.openTalkDecentMessageEditor = function() {
+        const hiddenTA = document.getElementById('talkdecent-message');
+        const currentText = hiddenTA ? hiddenTA.value : '';
+        openNotesModal(currentText, (text) => {
+            const ta = document.getElementById('talkdecent-message');
+            if (ta) ta.value = text;
+            const preview = document.getElementById('talkdecent-message-preview');
+            if (!preview) return;
+            if (text) {
+                preview.textContent = text;
+                preview.style.color = 'var(--text-primary)';
+            } else {
+                preview.textContent = 'Tap to write message…';
+                preview.style.color = 'var(--low-contrast-white)';
+            }
+        });
+    };
+
+    window.sendDecentMessage = async function() {
+        const subject   = (document.getElementById('talkdecent-subject')?.value || '').trim();
+        const message   = (document.getElementById('talkdecent-message')?.value || '').trim();
+        const statusEl  = document.getElementById('talkdecent-send-status');
+        const sendBtn   = document.getElementById('talkdecent-send-btn');
+        const email     = localStorage.getItem('decentEmail');
+        const cryptpw   = localStorage.getItem('decentCryptpw');
+        const serial    = localStorage.getItem('decentSerial');
+
+        if (!subject) {
+            if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Please enter a subject.</span>';
+            return;
+        }
+        if (!message) {
+            if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Please enter a message.</span>';
+            return;
+        }
+        if (!email || !cryptpw) {
+            if (statusEl) statusEl.innerHTML = '<span class="text-red-500">Sign in first.</span>';
+            return;
+        }
+
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending…'; }
+        if (statusEl) statusEl.innerHTML = '';
+
+        const attachMachine = document.getElementById('talkdecent-attach-machine')?.checked;
+
+        try {
+            let body = message;
+            const machineInfo = settingsCache.machineInfo;
+            const appInfo     = settingsCache.appInfo;
+            if (attachMachine && (machineInfo || appInfo || serial)) {
+                body += '\n\n---\n**Machine Info**';
+                if (machineInfo?.model)        body += `\n- Model: ${machineInfo.model}`;
+                if (machineInfo?.version)      body += `\n- Firmware: ${machineInfo.version}`;
+                if (machineInfo?.serialNumber) body += `\n- Serial: ${machineInfo.serialNumber}`;
+                else if (serial)               body += `\n- Serial: ${serial}`;
+                if (appInfo?.version)          body += `\n- App version: ${appInfo.version}`;
+            }
+            const params = new URLSearchParams({ subject, body });
+            const authHeader = 'Basic ' + btoa(`${email}:${cryptpw}`);
+            const res = await fetch(
+                `https://decentespresso.com/support/api/email?${params.toString()}`,
+                { headers: { 'Authorization': authHeader } }
+            );
+            const text = (await res.text()).trim();
+            if (!res.ok || text === '0') throw new Error('Message could not be delivered. Check your connection.');
+
+            if (statusEl) statusEl.innerHTML = `
+                <span class="text-green-600 font-bold text-[22px]">Message sent!</span>
+                <span class="text-[20px] text-[var(--low-contrast-white)] ml-[8px]">Decent support will reply to your email.</span>`;
+            document.getElementById('talkdecent-subject').value = '';
+            document.getElementById('talkdecent-message').value = '';
+            const msgPreview = document.getElementById('talkdecent-message-preview');
+            if (msgPreview) {
+                msgPreview.textContent = 'Tap to write message…';
+                msgPreview.style.color = 'var(--low-contrast-white)';
+            }
+        } catch (err) {
+            if (statusEl) statusEl.innerHTML = `<span class="text-red-500 text-[22px]">Error: ${err.message}</span>`;
+        } finally {
+            if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Message'; }
+        }
+    };
+
+    window.decentLogin = async function() {
+        const email    = (document.getElementById('decent-email-input')?.value || '').trim();
+        const password = document.getElementById('decent-password-input')?.value || '';
+        const statusEl = document.getElementById('decent-login-status');
+        if (!email || !password) {
+            statusEl.innerHTML = '<span class="text-red-500">Enter email and password.</span>';
+            return;
+        }
+        statusEl.textContent = 'Signing in…';
+        try {
+            const authHeader = 'Basic ' + btoa(`${email}:${password}`);
+            const res = await fetch('https://decentespresso.com/support/api/login_test', {
+                headers: { 'Authorization': authHeader }
+            });
+            const text = (await res.text()).trim();
+            if (!res.ok || text === '0' || text === '') throw new Error('Invalid credentials');
+
+            const cryptpw = text;
+            localStorage.setItem('decentEmail', email);
+            localStorage.setItem('decentCryptpw', cryptpw);
+
+            try {
+                const snRes = await fetch('https://decentespresso.com/support/api/sn', {
+                    headers: { 'Authorization': 'Basic ' + btoa(`${email}:${cryptpw}`) }
+                });
+                const snText = (await snRes.text()).trim();
+                const serial = snText.split(/[\r\n]/)[0].trim();
+                localStorage.setItem('decentSerial', serial || '');
+            } catch (_) {
+                localStorage.setItem('decentSerial', '');
+            }
+
+            document.getElementById('decent-password-input').value = '';
+            window.updateDecentAccountUI();
+        } catch (err) {
+            statusEl.innerHTML = `<span class="text-red-500 text-[22px]">${err.message}</span>`;
+        }
+    };
+
+    window.decentLogout = function() {
+        localStorage.removeItem('decentEmail');
+        localStorage.removeItem('decentCryptpw');
+        localStorage.removeItem('decentSerial');
+        window.updateDecentAccountUI();
+    };
+
+    window.updateDecentAccountUI = function() {
+        const email     = localStorage.getItem('decentEmail');
+        const serial    = localStorage.getItem('decentSerial');
+        const loggedOut = document.getElementById('decent-logged-out');
+        const loggedIn  = document.getElementById('decent-logged-in');
+        if (!loggedOut || !loggedIn) return;
+        if (email) {
+            loggedOut.classList.add('hidden');
+            loggedIn.classList.remove('hidden');
+            const emailEl = document.getElementById('decent-account-email');
+            if (emailEl) emailEl.textContent = email;
+            const serialEl = document.getElementById('decent-account-serial');
+            if (serialEl) serialEl.textContent = serial ? `Serial: ${serial}` : '';
+        } else {
+            loggedIn.classList.add('hidden');
+            loggedOut.classList.remove('hidden');
+        }
+    };
+
+    window.openFeedbackDescriptionEditor = function() {
+        const hiddenTA = document.getElementById('feedback-description');
+        const currentText = hiddenTA ? hiddenTA.value : '';
+        openNotesModal(currentText, (text) => {
+            const ta = document.getElementById('feedback-description');
+            if (ta) ta.value = text;
+            const preview = document.getElementById('feedback-description-preview');
+            if (!preview) return;
+            if (text) {
+                preview.textContent = text;
+                preview.style.color = 'var(--text-primary)';
+            } else {
+                preview.textContent = 'Tap to write description…';
+                preview.style.color = 'var(--low-contrast-white)';
+            }
+        });
+    };
+
     window.selectFeedbackCategory = function(value) {
         document.getElementById('feedback-category').value = value;
         document.querySelectorAll('[data-feedback-card]').forEach(btn => {
@@ -3794,10 +4172,10 @@ export async function initializeSettings() {
     };
 
     window.submitFeedback = async function() {
-        const category = document.getElementById('feedback-category')?.value || 'bug';
-        const title    = (document.getElementById('feedback-title')?.value || '').trim();
-        const desc     = (document.getElementById('feedback-description')?.value || '').trim();
-        const email    = (document.getElementById('feedback-email')?.value || '').trim();
+        const category  = document.getElementById('feedback-category')?.value || 'bug';
+        const title     = (document.getElementById('feedback-title')?.value || '').trim();
+        const desc      = (document.getElementById('feedback-description')?.value || '').trim();
+        const email     = (document.getElementById('feedback-email')?.value || '').trim();
         const attachSys = document.getElementById('feedback-attach-sysinfo')?.checked;
         const statusEl  = document.getElementById('feedback-status');
         const submitBtn = document.getElementById('feedback-submit-btn');
@@ -3807,51 +4185,38 @@ export async function initializeSettings() {
             return;
         }
 
-        let body = desc;
-        if (email) {
-            body += `\n\n---\n**Contact:** ${email}`;
-        }
-        if (attachSys) {
-            const appInfo     = settingsCache.appInfo;
-            const machineInfo = settingsCache.machineInfo;
-            body += '\n\n---\n**System Info**\n';
-            if (appInfo) {
-                body += `- App version: ${appInfo.version || ''} (${appInfo.fullVersion || ''})\n`;
-                body += `- Build: ${appInfo.buildNumber || ''} / ${appInfo.branch || ''} @ ${appInfo.commitShort || ''}\n`;
-            }
-            if (machineInfo) {
-                body += `- Machine: ${machineInfo.model || ''} v${machineInfo.version || ''}\n`;
-                body += `- Serial: ${machineInfo.serialNumber || ''}\n`;
-            }
+        let fullDesc = `**${title}**\n\n${desc}`;
+        if (email) fullDesc += `\n\n---\n**Contact:** ${email}`;
+
+        const decentEmail  = localStorage.getItem('decentEmail');
+        const decentSerial = localStorage.getItem('decentSerial');
+        if (decentEmail) {
+            fullDesc += `\n\n---\n**Decent Account:** ${decentEmail}`;
+            if (decentSerial) fullDesc += `\n**Serial:** ${decentSerial}`;
         }
 
         if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
         statusEl.innerHTML = '';
 
         try {
-            const response = await fetch(
-                'https://api.github.com/repos/allofmeng/streamline_project/issues',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${FEEDBACK_BOT_TOKEN}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/vnd.github+json',
-                        'X-GitHub-Api-Version': '2022-11-28'
-                    },
-                    body: JSON.stringify({ title, body, labels: [category] })
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || `HTTP ${response.status}`);
+            const { submitFeedback: submitToREA } = await import('../modules/api.js');
+            const data = await submitToREA({
+                description: fullDesc,
+                type: category,
+                includeLogs: attachSys,
+                includeSystemInfo: attachSys,
+            });
             statusEl.innerHTML = `
                 <span class="text-green-600 font-bold text-[24px]">Submitted!</span>
-                <a href="${data.html_url}" target="_blank"
-                   class="ml-3 text-[#385a92] underline text-[22px]">
-                   View issue #${data.number}
-                </a>`;
+                ${data.issueUrl ? `<a href="${data.issueUrl}" target="_blank"
+                   class="ml-3 text-[#385a92] underline text-[22px]">View issue</a>` : ''}`;
             document.getElementById('feedback-title').value = '';
             document.getElementById('feedback-description').value = '';
+            const preview = document.getElementById('feedback-description-preview');
+            if (preview) {
+                preview.textContent = 'Tap to write description…';
+                preview.style.color = 'var(--low-contrast-white)';
+            }
         } catch (err) {
             logger.error('Feedback submit error:', err);
             statusEl.innerHTML = `<span class="text-red-500 text-[22px]">Error: ${err.message}</span>`;

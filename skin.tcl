@@ -7,6 +7,9 @@ dui theme add streamline
 dui theme set streamline
 
 set ::streamline_longpress_threshold 1000
+set ::streamline_adjust_grind_shortpress 1
+set ::streamline_adjust_grind_longpress .1
+
 
 if {$::android != 1} {
 	set ::settings(ghc_is_installed) 0
@@ -106,7 +109,8 @@ if {$::streamline_dark_mode == 0} {
 	set ::flow_line_color_goal "#bed9ff"
 	set ::temperature_line_color "#ff97a1"
 	set ::temperature_line_color_goal "#ffd1d5"
-	set ::weightlinecolor "#e9d3c3"
+	set ::weightlinecolor "#D8BDA8"
+	set ::weightlinecolor_label "#C7A58D"
 	set ::state_change_color "#7c7c7c"
 	set ::chart_background $::background_color
 	set ::pressurelabelcolor "#959595"
@@ -115,7 +119,7 @@ if {$::streamline_dark_mode == 0} {
 	set ::grid_color "#E0E0E0"
 
 } else {
-	#dark mode 
+
 	set ::progress_bar_red "#DA515E"
 	set ::progress_bar_green "#0CA581"
 	set ::progress_bar_grey "#c2c2c2"
@@ -203,6 +207,7 @@ set ::blink_button_color "#395ab9"
 	set ::temperature_line_color "#AE6D73"
 	set ::temperature_line_color_goal "#3e3233"
 	set ::weightlinecolor "#695f57"
+	set ::weightlinecolor_label "#847971"
 	set ::state_change_color "#7f8bbb"
 	set ::chart_background $::background_color
 	set ::pressurelabelcolor "#606579"
@@ -225,77 +230,86 @@ source "[homedir]/skins/default/standard_includes.tcl"
 # disable the scale popup msgs
 set ::settings(show_scale_notifications) 0
 
-#load_font "Inter-Regular10" "[homedir]/Streamline/Inter-Regular.ttf" 11
+set InterSemiBold "[homedir]/skins/Streamline/Inter-SemiBold.ttf"
+set InterBold "[homedir]/skins/Streamline/Inter-Bold.ttf"
+set InterExtraLight "[homedir]/skins/Streamline/Inter-ExtraLight.ttf"
+set InterRegular "[homedir]/skins/Streamline/Inter-Regular.ttf"
+set InterThin "[homedir]/skins/Streamline/Inter-Thin.ttf"
+
+
+if {[ifexists ::settings(language)] == "ar" || [ifexists ::settings(language)] == "arb"} {
+	set InterSemiBold "[homedir]/fonts/NotoSansArabic-Regular.ttf"
+	set InterBold "[homedir]/fonts/NotoSansArabic-Regular.ttf"
+	set InterExtraLight "[homedir]/fonts/NotoSansArabic-Regular.ttf"
+	set InterRegular "[homedir]/fonts/NotoSansArabic-Regular.ttf"
+	set InterThin "[homedir]/fonts/NotoSansArabic-Regular.ttf"
+}
+
+
+
 
 # Left column labels
-load_font "Inter-Bold16" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 14
-#load_font "Inter-Bold15" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 13
+load_font "Inter-Bold16" "$InterSemiBold" 14
 
 # GHC buttons
-load_font "Inter-Bold12" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 12
+load_font "Inter-Bold12" "$InterSemiBold" 12
 
-load_font "Inter-Bold11" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 12
+load_font "Inter-Bold11" "$InterSemiBold" 12
 
 # Profile buttons
-load_font "Inter-Bold13" "[homedir]/skins/Streamline/Inter-Bold.ttf" 13 13 bold
+load_font "Inter-Bold13" "$InterBold" 13 13 bold
 
 # status
-
-load_font "Inter-Bold17" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 12
-load_font "Inter-Bold18" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 13
-#if {$::undroid == 1} {
-#} else {
-#	load_font "Inter-Bold18" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 13
-#}
-
+load_font "Inter-Bold17" "$InterSemiBold" 12
+load_font "Inter-Bold18" "$InterSemiBold" 13
 
 # status bold
-load_font "Inter-SemiBold18" "[homedir]/skins/Streamline/Inter-Bold.ttf" 13
+load_font "Inter-SemiBold18" "$InterBold" 13
 
 # +/- buttons
-load_font "Inter-Bold24" "[homedir]/skins/Streamline/Inter-ExtraLight.ttf" 29
+load_font "Inter-Bold24" "$InterExtraLight" 29
 
 
 # data entry buttons
-load_font "Inter-Bold40" "[homedir]/skins/Streamline/Inter-Regular.ttf" 39
+load_font "Inter-Bold40" "$InterRegular" 39
 
 # data entry backspace button
-load_font "Inter-Bold30" "[homedir]/skins/Streamline/Inter-Regular.ttf" 24
+load_font "Inter-Bold30" "$InterRegular" 24
 
 # profile 
-load_font "Inter-HeavyBold24" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 17
+load_font "Inter-HeavyBold24" "$InterSemiBold" 17
 
 # data entry title 
-load_font "Inter-HeavyBold40" "[homedir]/skins/Streamline/Inter-Bold.ttf" 32 32 bold
+load_font "Inter-HeavyBold40" "$InterBold" 32 32 bold
 
 # data entry data
-load_font "Inter-HeavyBold50" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 40
+load_font "Inter-HeavyBold50" "$InterSemiBold" 40
 
 # data entry confirm and cancel
-load_font "Inter-HeavyBold30" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 16
+load_font "Inter-HeavyBold30" "$InterSemiBold" 16
 
 # data entry previous
-load_font "Inter-HeavyBold35" "[homedir]/skins/Streamline/Inter-Regular.ttf" 16
+load_font "Inter-HeavyBold35" "$InterRegular" 16
 
 # X and Y axis font
-load_font "Inter-Regular20" "[homedir]/skins/Streamline/Inter-Regular.ttf" 16
+load_font "Inter-Regular20" "$InterRegular" 16
 
 # X and Y axis font
-load_font "Inter-Regular16" "[homedir]/skins/Streamline/Inter-Regular.ttf" 16
+load_font "Inter-Regular16" "$InterRegular" 16
 
 # X and Y axis font
-load_font "Inter-Regular12" "[homedir]/skins/Streamline/Inter-Regular.ttf" 12
+load_font "Inter-Regular12" "$InterRegular" 12
 
 # X and Y axis font
-load_font "Inter-Regular10" "[homedir]/skins/Streamline/Inter-Regular.ttf" 10
+load_font "Inter-Regular10" "$InterRegular" 10
 
-load_font "Inter-Regular6" "[homedir]/skins/Streamline/Inter-Regular.ttf" 6
+load_font "Inter-Regular6" "$InterRegular" 6
 
 # Scale disconnected msg
-load_font "Inter-Black18" "[homedir]/skins/Streamline/Inter-SemiBold.ttf" 14
+load_font "Inter-Black18" "$InterSemiBold" 14
 
 # Vertical bar in top right buttons
-load_font "Inter-Thin14" "[homedir]/skins/Streamline/Inter-Thin.ttf" 14
+load_font "Inter-Thin14" "$InterThin" 14
 
 # button icon font
 load_font "icomoon" "[homedir]/skins/Streamline/icomoon.ttf" 30
@@ -427,26 +441,27 @@ streamline_rectangle $::all_pages 0 220 2560 220 $::box_line_color $::plus_minus
 proc copy_streamline_settings_to_DYE {} {
 
 	if { [plugins enabled DYE] } {
-		set ::plugins::DYE::settings(next_drink_weight) $::settings(final_desired_shot_weight) 
-		set ::plugins::DYE::settings(next_grinder_dose_weight) $::settings(grinder_dose_weight) 
-		set ::plugins::DYE::settings(next_grinder_setting) $::settings(grinder_setting)
+		# wrap this in a catch statement because it seems that the first time running DYE, the namespace is not yet enabled, and these "set" commands would cause errors.
+		catch {
+			set ::plugins::DYE::settings(next_drink_weight) $::settings(final_desired_shot_weight) 
+			set ::plugins::DYE::settings(next_grinder_dose_weight) $::settings(grinder_dose_weight) 
+			set ::plugins::DYE::settings(next_grinder_setting) $::settings(grinder_setting)
+		}
 	}
 }
 
-
 proc streamline_adjust_grind { args } {
-
 	if {$args == "-"} {
-		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) - .1}]]
+		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) - $::streamline_adjust_grind_longpress}]]
 		flash_button "streamline_minus_grind_btn" $::plus_minus_flash_on_color $::plus_minus_flash_off_color
 	} elseif {$args == "+"} {
-		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) + .1}]]
+		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) + $::streamline_adjust_grind_longpress}]]
 		flash_button "streamline_plus_grind_btn" $::plus_minus_flash_on_color $::plus_minus_flash_off_color
 	} elseif {$args == "--"} {
-		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) - 1}]]
+		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) - $::streamline_adjust_grind_shortpress}]]
 		flash_button "streamline_minus_grind_btn" $::plus_minus_flash_on_color $::plus_minus_flash_off_color
 	} elseif {$args == "++"} {
-		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) + 1}]]
+		set ::settings(grinder_setting) [round_to_one_digits [expr {$::settings(grinder_setting) + $::streamline_adjust_grind_shortpress}]]
 		flash_button "streamline_plus_grind_btn" $::plus_minus_flash_on_color $::plus_minus_flash_off_color
 	}
 
@@ -536,6 +551,7 @@ streamline_init_history_files
 
 proc back_from_settings {} {
 	refresh_favorite_profile_button_labels
+	fill_advanced_profile_steps_listbox
 }
 
 
@@ -583,6 +599,9 @@ proc update_datacard_from_live_data {} {
 
 	catch {
 		update_data_card past_shot_array ::settings
+
+		update_chart_label_position 1
+
 	}
 }
 
@@ -733,7 +752,7 @@ if {$::settings(scale_bluetooth_address) != ""} {
 }
 
 
-add_de1_rich_text "off espresso" 690 330 [list left none] 1 2 74 $::background_color $btns
+add_de1_rich_text "off espresso" 690 330 [list left none] 1 1 74 $::background_color $btns
 
 
 set flush_btns ""
@@ -818,12 +837,31 @@ proc steam_timeout_seconds {} {
 	return $::settings(steam_timeout)
 }
 
+proc streamline_verify_sane_number_settings {} {
+
+	# if these settings have become blank or invalid somehow, then they will cause errors later with +/- buttons, so zero them if they are blank
+	foreach checkzero [list steam_timeout grinder_setting grinder_dose_weight espresso_temperature steam_flow flush_seconds water_volume water_temperature final_desired_shot_weight final_desired_shot_weight_advanced] {
+		set newval 0
+		catch {
+			if {$::settings($checkzero) != ""} {
+				set newval [expr {$::settings($checkzero) + 0}]
+			}
+		}
+
+		set ::settings($checkzero) $newval
+	}
+}
+
 
 set ::streamline_hotwater_label_1st ""
 set ::streamline_hotwater_label_2nd ""
 
 set ::streamline_steam_label_1st ""
 set ::streamline_steam_label_2nd ""
+
+streamline_verify_sane_number_settings
+
+
 
 set zoomed_btns ""
 lappend zoomed_btns \
@@ -961,10 +999,10 @@ proc update_streamline_status_message {} {
 
 				set force_update 1				
 				if {$ETA < $::streamline_start_heating_eta_previous || $force_update == 1} {
-					set msg [subst { [seconds_text_very_abbreviated $ETA][translate remaining]}]
+					set msg [subst { [seconds_text_very_abbreviated $ETA] [translate remaining]}]
 					set ::streamline_start_heating_eta_previous $ETA
 				} else {
-					set msg [subst { [seconds_text_very_abbreviated $::streamline_start_heating_eta_previous][translate remaining]}]
+					set msg [subst { [seconds_text_very_abbreviated $::streamline_start_heating_eta_previous] [translate remaining]}]
 				}
 				if {$warmed > 2 } {
 					set red_msg [translate "Heating:"]
@@ -1580,6 +1618,15 @@ add_de1_button "off steam" {steam_time_flow_flip} 0 947 222 1056 ""
 set ::streamline_current_history_profile_name ""
 set ::streamline_current_history_profile_clock ""
 
+::de1::event::listener::on_major_state_change_add -noidle streamline_on_major_state_change
+proc streamline_on_major_state_change {event_dict} {
+	set this_state [dict get $event_dict this_state]
+
+	if { $this_state == "Espresso" } {
+		start_streamline_espresso
+	}
+}
+
 
 proc start_streamline_espresso {} {
 
@@ -1600,6 +1647,9 @@ proc start_streamline_espresso {} {
 
 	unset -nocomplain ::de1(espresso_elapsed)
 	update_data_card ::de1 ::settings
+
+	potentially_hide_chart_label_position
+
 }
 
 set ::streamline_history_text_label [translate "HISTORY"] 
@@ -2047,6 +2097,7 @@ dui add dbutton "off water" 474 1516 624 1600 -command {say [translate {Preset}]
 
 proc refresh_favorite_profile_button_labels {} {
 
+	streamline_verify_sane_number_settings
 
 	set profiles [ifexists ::settings(favorite_profiles)]
 	set streamline_selected_favorite_profile ""
@@ -2250,7 +2301,7 @@ set right_buttons_start 2530
 set right_buttons_width 200
 set right_buttons_separation 20
 
-dui add dbutton $::all_pages [expr {$right_buttons_start - (2*$right_buttons_width) - (2*$right_buttons_separation)}] 66 [expr {$right_buttons_start - $right_buttons_width - $right_buttons_separation}] 155 -tags settings_btn -label [translate "Settings"]  -command { say [translate {settings}] $::settings(sound_button_out); show_settings [::profile::fix_profile_type [ifexists ::settings(settings_profile_type)]] "back_from_settings" } -tap_pad {6 50 6 50}
+dui add dbutton $::all_pages [expr {$right_buttons_start - (2*$right_buttons_width) - (2*$right_buttons_separation)}] 66 [expr {$right_buttons_start - $right_buttons_width - $right_buttons_separation}] 155 -tags settings_btn -label [translate "Settings"]  -command { say [translate {settings}] $::settings(sound_button_out); show_profile_editor "" "back_from_settings" } -tap_pad {6 50 6 50}
 dui add dbutton $::all_pages [expr {$right_buttons_start - $right_buttons_width}] 66 $right_buttons_start 155 -tags sleep_btn -label [translate "Sleep"]  -command { say [translate {sleep}] $::settings(sound_button_out); start_sleep } -longpress_cmd { say [translate {Exit}] $::settings(sound_button_out); streamline_app_exit_button }  -tap_pad {6 50 24 50}
 #-longpress_threshold $::streamline_longpress_threshold 
 #
@@ -2742,8 +2793,9 @@ proc streamline_profile_edit { slot } {
 
 	set profile_type [::profile::fix_profile_type [ifexists ::settings(settings_profile_type)]]
 
-	show_settings $profile_type
-	fill_advanced_profile_steps_listbox
+	#show_settings $profile_type
+	show_profile_editor "" "back_from_settings"
+	#fill_advanced_profile_steps_listbox
 
 }
 
@@ -3829,14 +3881,39 @@ set charts_width_zoomed 2480
 set charts_height 784
 set charts_height_zoomed 1040
 
+set ::streamline_enable_chart_labels 1
+set ::streamline_enable_chart_labels_realtime 0
+set ::labelfont Inter-Regular10
+
 proc streamline_graph_smarts {widget {which ""} } {
 
 	set ::streamline_chart $widget
 
+	if {$::streamline_enable_chart_labels == 1} {
+		#set anchor ne
+		set weightanchor w
+		set pressureanchor w
+		set tempanchor w
+		set flowanchor w
+		#set yoffset [rescale_x_skin -40]
+		#set xoffset [rescale_x_skin 30]
+		set yoffset 0
+		set xoffset 0
+		set padx [rescale_x_skin 2]
+		set pady [rescale_x_skin 2]
+		set pady 0
+		set padx 0
+		set label_background $::chart_background
+		set label_background ""
+
+		$widget marker create text -coords {10000 1} -text [subst {\u00B0C}] -anchor $tempanchor  -font $::labelfont  -foreground $::temperature_line_color -name "label_temperature"  -xoffset $xoffset  -yoffset $yoffset -background $label_background -padx $padx -pady $pady
+		$widget marker create text -coords {10000 1} -text [subst {[translate "pressure"]}] -anchor $pressureanchor  -font $::labelfont  -foreground $::pressurelinecolor -name "label_pressure" -xoffset $xoffset   -yoffset $yoffset -background $label_background -padx $padx -pady $pady
+		$widget marker create text -coords {10000 1} -text [subst {[translate "weight"]}] -anchor $weightanchor  -font $::labelfont  -foreground $::weightlinecolor_label -name "label_weight"  -xoffset $xoffset -yoffset $yoffset -background $label_background -padx $padx -pady $pady
+		$widget marker create text -coords {10000 1} -text [subst {[translate "flow"]}] -anchor $flowanchor  -font $::labelfont  -foreground $::flow_line_color -name "label_flow"  -xoffset $xoffset  -yoffset $yoffset -background $label_background -padx $padx -pady $pady
+	}
 
 	$widget element create line_espresso_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal -symbol none -label "" -linewidth [rescale_x_skin 4] -color $::pressurelinecolor_goal  -smooth $::settings(live_graph_smoothing_technique)  -pixels 0 -dashes $::pressure_goal_dashes; 
 	$widget element create line_espresso_pressure -xdata espresso_elapsed -ydata espresso_pressure -symbol none -label "" -linewidth [rescale_x_skin 6] -color $::pressurelinecolor  -smooth $::settings(live_graph_smoothing_technique) -pixels 0
-	
 
 	$widget element create line_espresso_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal -symbol none -label "" -linewidth [rescale_x_skin 4] -color $::flow_line_color_goal -smooth $::settings(live_graph_smoothing_technique) -pixels 0  -dashes $::flow_goal_dashes; 
 	$widget element create line_espresso_flow  -xdata espresso_elapsed -ydata espresso_flow -symbol none -label "" -linewidth [rescale_x_skin 6] -color $::flow_line_color -smooth $::settings(live_graph_smoothing_technique) -pixels 0
@@ -4003,8 +4080,27 @@ proc streamline_graph_smarts {widget {which ""} } {
 }
 
 
-add_de1_widget $::pages graph 692 458 { streamline_graph_smarts $widget } -plotbackground $::chart_background -width [rescale_x_skin [expr {$charts_width - $ghc_pos_pffset}]] -height [rescale_y_skin $charts_height] -borderwidth 1 -background $::chart_background -plotrelief flat -plotpady 10 -plotpadx 10  
-add_de1_widget $::zoomed_pages graph 22 520 { streamline_graph_smarts $widget "off_zoomed" } -plotbackground $::chart_background -width [rescale_x_skin [expr {$charts_width_zoomed - $ghc_pos_pffset}]] -height [rescale_y_skin $charts_height_zoomed] -borderwidth 1 -background $::chart_background -plotrelief flat -plotpady 10 -plotpadx 10  
+set plotpadx [rescale_x_skin 20]
+set plotpady [rescale_x_skin 20]
+if {$::streamline_enable_chart_labels == 1} {
+
+	set largest_label_font 10
+	foreach s [list "pressure" "weight" "flow"] {
+		set width [font measure $::labelfont [translate $s]]
+		if {$width > $largest_label_font} {
+			set largest_label_font $width
+		}
+	}
+
+	# john : not sure why a 2x rescale is needed to make this metric work, but it does work perfectly at 1280x800
+	set rescale_y [expr {2 * $largest_label_font}]
+	set plotpadx [list 0 [rescale_x_skin $rescale_y]]
+
+	set plotpady [rescale_x_skin 20]
+}
+
+add_de1_widget $::zoomed_pages graph 22 520 { set ::streamline_chart_zoomed $widget; streamline_graph_smarts $widget "off_zoomed" } -plotbackground $::chart_background -width [rescale_x_skin [expr {$charts_width_zoomed - $ghc_pos_pffset}]] -height [rescale_y_skin $charts_height_zoomed] -borderwidth 1 -background $::chart_background -plotrelief flat -plotpady $plotpady -plotpadx $plotpadx
+add_de1_widget $::pages graph 692 458 { set ::streamline_chart $widget; streamline_graph_smarts $widget } -plotbackground $::chart_background -width [rescale_x_skin [expr {$charts_width - $ghc_pos_pffset}]] -height [rescale_y_skin $charts_height] -borderwidth 1 -background $::chart_background -plotrelief flat -plotpady $plotpady -plotpadx $plotpadx
 
 ############################################################################################################################################################################################################
 
@@ -4111,6 +4207,8 @@ proc streamline_load_history_shot {current_shot_filename} {
 	set ::streamline_current_history_profile_clock [ifexists past_shot_array(clock)]
 
 	update_data_card past_shot_array profile_settings
+
+	update_chart_label_position 0
 }
 
 proc track_peak_low { state espresso_pressure espresso_flow espresso_temperature_basket } {
@@ -4148,11 +4246,107 @@ proc track_peak_low { state espresso_pressure espresso_flow espresso_temperature
 
 }
 
+proc potentially_hide_chart_label_position {} {
+
+	if {$::streamline_enable_chart_labels_realtime == 0} {
+		$::streamline_chart marker configure "label_pressure" -coords {10000 1}
+		$::streamline_chart marker configure "label_flow" -coords {10000 1}
+		$::streamline_chart marker configure "label_temperature" -coords {10000 1}
+		$::streamline_chart marker configure "label_weight" -coords {10000 1}
+
+		$::streamline_chart_zoomed marker configure "label_pressure" -coords {10000 1}
+		$::streamline_chart_zoomed marker configure "label_flow" -coords {10000 1}
+		$::streamline_chart_zoomed marker configure "label_temperature" -coords {10000 1}
+		$::streamline_chart_zoomed marker configure "label_weight" -coords {10000 1}
+	} 
+}
+
+proc update_chart_label_position {in_realtime} {
+	if {$::streamline_enable_chart_labels == 1} {
+
+		if {$in_realtime == 1 && $::streamline_enable_chart_labels_realtime != 1} {
+			return 
+		}
+
+		#if {$::de1_num_state($::de1(state)) != "Idle" && $::de1_num_state($::de1(state)) != "Sleep" && $::streamline_enable_chart_labels_realtime != 1} {
+			# 2nd test to make sure that the machine is idle when moving the line labels around, unless we're in realtime line labels enabled mode
+			#return
+		#}
+
+		if {[espresso_elapsed range end end] > 0} {
+
+			set avoid_overlapping 0
+
+			set elapsed [expr {[espresso_elapsed range end end]}]
+			#set elapsed1 [$::streamline_chart axis limits x]
+			#set elapsed [lindex $elapsed1 1]
+
+			#set pressure_y [expr {1.0 * [espresso_pressure range end end] - 0.5}]
+			set pressure_y [espresso_pressure range end end]
+			$::streamline_chart marker configure "label_pressure" -coords [list $elapsed $pressure_y]
+			$::streamline_chart_zoomed marker configure "label_pressure" -coords [list $elapsed $pressure_y]
+
+			set flow_y [espresso_flow range end end]
+			$::streamline_chart marker configure "label_flow" -coords [list $elapsed $flow_y]
+			$::streamline_chart_zoomed marker configure "label_flow" -coords [list $elapsed $flow_y]
+
+			set mindist 0.4
+
+			########################
+			# make sure pressure doesn't overwrite temp label
+			set temp_y [espresso_temperature_basket10th range end end]
+			
+
+			if {$avoid_overlapping == 1} {
+				set distance [expr {$temp_y - $pressure_y}]
+				if {$distance > 0 && $distance < $mindist} {
+					set temp_y [expr {$pressure_y + $mindist}]
+				}
+				if {$distance < 0 && $distance > -$mindist} {
+					set temp_y [expr {$pressure_y - $mindist}]
+				}
+			}
+
+			$::streamline_chart marker configure "label_temperature" -coords [list $elapsed $temp_y]
+			$::streamline_chart_zoomed marker configure "label_temperature" -coords [list $elapsed $temp_y]
+			########################
+
+			########################
+			# make sure weight label doesn't sit on top of the flow label
+			if {[espresso_flow_weight length] > 0} {
+				set weight_y [espresso_flow_weight range end end]
+				
+				if {$avoid_overlapping == 1} {
+					set distance [expr {$weight_y - $flow_y}]
+					if {$distance > 0 && $distance < $mindist} {
+						set weight_y [expr {$flow_y + $mindist}]
+					}
+					if {$distance < 0 && $distance > -$mindist} {
+						set weight_y [expr {$flow_y - $mindist}]
+					}
+				}
+
+				$::streamline_chart marker configure "label_weight" -coords [list $elapsed $weight_y]
+				$::streamline_chart_zoomed marker configure "label_weight" -coords [list $elapsed $weight_y]
+
+			} else {
+				#hide if not needed
+				$::streamline_chart marker configure "label_weight" -coords {-100 -100}
+				$::streamline_chart_zoomed marker configure "label_weight" -coords {-100 -100}
+			}
+			########################
+		}
+	}
+}
 
 proc update_data_card { arrname settingsarr } {
 
 	upvar $arrname past_shot_array
 	upvar $settingsarr profile_settings
+
+
+	
+
 
 	#puts "ERROR el: [ifexists past_shot_array(espresso_elapsed)]"
 
@@ -4547,7 +4741,7 @@ proc streamline_history_profile_btns_refresh {} {
 proc streamline_history_profile_back {} {
 
 	if {[info exists ::de1(streamline_shot_in_progress)] == 1} {
-		popup [translate "Wait until this shot is saved"]
+		#popup [translate "Wait until this shot is saved"]
 		return
 	}
 
@@ -4562,7 +4756,7 @@ proc streamline_history_profile_back {} {
 proc streamline_history_profile_fwd { {destination {}} } {
 
 	if {[info exists ::de1(streamline_shot_in_progress)] == 1} {
-		popup [translate "Wait until this shot is saved"]
+		#popup [translate "Wait until this shot is saved"]
 		return
 	}
 
@@ -4600,6 +4794,8 @@ proc streamline_shot_ended  {} {
 	set ::settings(current_frame_description) ""
 
 	unset -nocomplain ::de1(streamline_shot_in_progress)
+
+	update_chart_label_position 0
 }
 
 ############################################################################################################################################################################################################
@@ -4976,4 +5172,3 @@ streamline_load_currently_selected_history_shot
 dui theme set default
 add_de1_button "saver" {say [translate {awake}] $::settings(sound_button_out); set_next_page off $::off_page; page_show off; start_idle; de1_send_waterlevel_settings;} 0 0 2560 1600 "buttonnativepress"
 add_de1_button "descaling cleaning" {say [translate {awake}] $::settings(sound_button_out); set_next_page off $::off_page; page_show off; start_idle; de1_send_waterlevel_settings;} 0 0 2560 1600 "buttonnativepress"
-
