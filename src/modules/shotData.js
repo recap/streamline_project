@@ -171,6 +171,9 @@ export function renderPastShot(shotRecord) {
         const m = shotRecord.measurements[i];
         if (!m.machine) continue; // Only require machine data to proceed
 
+        const espressoStates = ['preinfusion', 'pouring'];
+        if (!espressoStates.includes(m.machine.state.substate)) continue;
+
         const timestamp = new Date(m.machine.timestamp).getTime();
         pastShotData.timestamps.push(timestamp);
         pastShotData.pressures.push(m.machine.pressure);
@@ -179,15 +182,16 @@ export function renderPastShot(shotRecord) {
         pastShotData.temperatures.push(m.machine.mixTemperature);
         pastShotData.substates.push(m.machine.state.substate);
 
-        if (i > 0) {
-            const timeDelta = (timestamp - pastShotData.timestamps[i - 1]) / 1000;
-            const lastFlow = pastShotData.flows[i - 1];
+        const idx = pastShotData.timestamps.length - 1;
+        if (idx > 0) {
+            const timeDelta = (timestamp - pastShotData.timestamps[idx - 1]) / 1000;
+            const lastFlow = pastShotData.flows[idx - 1];
             accumulatedVolume += lastFlow * timeDelta;
         }
         pastShotData.volumes.push(accumulatedVolume);
 
         if (m.machine.state.substate === 'pouring' && pastShotData.preinfusionEndIndex === -1) {
-            pastShotData.preinfusionEndIndex = i;
+            pastShotData.preinfusionEndIndex = idx;
         }
     }
 
