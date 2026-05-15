@@ -275,19 +275,19 @@ function areSettingsLoaded() {
            settingsCache.de1Advanced !== null;
 }
 
-// Update REA settings
+// Update decent.app settings
 export async function updateReaSetting(key, value) {
     try {
         const payload = { [key]: value };
         await setReaSettings(payload);
         settingsCache.rea[key] = value;
-        ui.showToast('REA setting updated successfully', 3000, 'success');
+        ui.showToast('decent.app setting updated successfully', 3000, 'success');
         if (activeSettingsCategory) { // Re-render the current view to reflect changes
             updateSettingsContentArea(activeSettingsCategory);
         }
     } catch (error) {
-        console.error('Error updating REA setting:', error);
-        ui.showToast(`Failed to update REA setting: ${error.message}`, 5000, 'error');
+        console.error('Error updating decent.app setting:', error);
+        ui.showToast(`Failed to update decent.app setting: ${error.message}`, 5000, 'error');
     }
 }
 
@@ -436,7 +436,6 @@ export function renderSettingsContent(category) {
             return renderWaterTankSettings();
         case 'flush':
             return renderFlushSettingsForm(settingsCache.de1);
-     
         case 'ble_scale':
             return renderBluetoothScaleSettings(settingsCache.rea);
         case 'ble_machine':
@@ -607,7 +606,7 @@ export function renderReaSettingsForm(settings) {
                 <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] not-italic relative text-[var(--text-primary)] text-[36px] text-center w-full">
                     <p class="leading-[1.2]">Application Settings</p>
                 </div>
-                <div class="text-red-500 p-4 text-[24px]">Failed to load REA settings</div>
+                <div class="text-red-500 p-4 text-[24px]">Failed to load decent.app settings</div>
             </div>
         `;
     }
@@ -615,7 +614,7 @@ export function renderReaSettingsForm(settings) {
     return `
         <div class="flex flex-col gap-[60px] items-start relative w-full max-w-full overflow-x-hidden">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] not-italic relative text-[var(--text-primary)] text-[36px] text-center w-full">
-                <p class="leading-[1.2]">REA Application Settings</p>
+                <p class="leading-[1.2]">decent.app Application Settings</p>
             </div>
 
             <!-- Divider -->
@@ -3222,7 +3221,7 @@ function setupVisualizerEventListeners() {
                 ui.showToast('Visualizer settings saved successfully', 3000, 'success');
             } catch (error) {
                 console.error('Failed to save visualizer plugin settings:', error);
-                ui.showToast(`Failed to save to REA plugin: ${error.message}`, 3000, 'error');
+                ui.showToast(`Failed to save to decent.app plugin: ${error.message}`, 3000, 'error');
             }
         } catch (error) {
             console.error('Error during credential validation:', error);
@@ -3603,12 +3602,12 @@ async function _preloadSettingsInternal() {
         if (reaSettingsResult.status === 'fulfilled') {
             reaSettings = reaSettingsResult.value;
         } else {
-            console.error('Error loading REA settings:', reaSettingsResult.reason);
+            console.error('Error loading decent.app settings:', reaSettingsResult.reason);
             settingsCache.reaError = reaSettingsResult.reason.message;
 
             // Check if this is a 500 error and redirect if needed
             if (reaSettingsResult.reason.status === 500) {
-                console.log('REA settings API returned 500 error, redirecting to home page');
+                console.log('decent.app settings API returned 500 error, redirecting to home page');
                 setTimeout(() => {
                     ui.showToast('Unable to load settings. Check if De1 is connected. Returned to home page.', 5000, 'error');
                 }, 1000);
@@ -3723,7 +3722,7 @@ async function _preloadSettingsInternal() {
 // Helper function to get title for a category
 function getCategoryTitle(category) {
     switch(category) {
-        case 'rea': return 'REA Application Settings';
+        case 'rea': return 'decent.app Application Settings';
         case 'quickadjustments': return 'Quick Adjustments';
         case 'flowmultiplier': return 'Flow Multiplier Settings';
         case 'steam': return 'Steam Settings';

@@ -65,12 +65,19 @@ A modern web UI skin for the Decent Espresso DE1, built on top of [Streamline-Br
 ### Settings
 - **Bluetooth** — scan and connect DE1 and scale; scale auto-connect
 - **Calibration** — fan threshold, advanced heater phase flow (DE1 settings)
-- **Skin** — presence-based auto-sleep with configurable schedule; wake-lock toggle
-- **Display** — brightness control and auto-brightness toggle; screen saver toggle
+- **Skin** — light/dark theme toggle; skin switcher (reloads to apply); presence-based auto-sleep with configurable schedule; wake-lock toggle
+- **Display** — brightness control and auto-brightness toggle; display size (zoom) selector with localStorage persistence
 - **Language** — multi-language support via CSV-based i18n; runtime language switching
 - **Extensions** — Decent Visualizer integration (toggle + credentials)
 - **REA Settings** — weight/volume flow multipliers; gateway mode selection
+- **Updates** — Streamline-Bridge app version, build info, machine firmware version and serial; DE1 firmware file upload
 - **User Manual** — links to Decent Espresso support, quickstart, and skin dev docs
+- **Talk to Decent** — in-app email support via Decent's API; conversation history; compose new support messages
+- **Send Feedback** — bug/feature/general category selector; markdown description editor (EasyMDE); optional Decent account sign-in to tag reports; system info attachment toggle; submits as GitHub issue via Rea Prime
+- **Keyboard Shortcuts** — reference page for available keyboard shortcuts
+
+### Profile Notes
+- Markdown editor (EasyMDE) accessible from the profile editor; full toolbar with bold/italic/headings/lists/links/preview; autosaved per-profile
 
 ### UI & UX
 - Light/dark theme (persisted in `localStorage`)
@@ -82,20 +89,25 @@ A modern web UI skin for the Decent Espresso DE1, built on top of [Streamline-Br
 
 ## Coming Soon
 
-### Settings — Unimplemented Functions
-- [ ] Quick Adjustments: Flow Multiplier, Steam, Water, Limit save buttons
-- [ ] Calibration: Reset defaults, Refill Kit calibrate, Voltage / Stop-at-Weight / Steam save, Slow Start dropdown (not supported by firmware API)
+### Settings — Unimplemented / UI-only
+- [ ] Quick Adjustments: Steam, Water, Limit save buttons (UI exists, not wired)
+- [ ] Calibration: Reset defaults, Refill Kit calibrate, Voltage / Stop-at-Weight / Steam save, Slow Start (disabled — not supported by firmware API)
 - [x] Calibration: Fan threshold save
-- [ ] Maintenance: Transport Mode dropdown (not supported by firmware API)
-- [x] Maintenance: Descaling Start
-- [ ] Skin: Theme toggle, Skin Apply button
-- [ ] Miscellaneous: Screen Saver, Units, Font Size, Resolution dropdowns
-- [x] Miscellaneous: Smart Charging — full settings page with mode selector, night mode schedule, and live charging status
-- [ ] Updates: Firmware Check, App Update Check buttons
-- [x] Bluetooth: Machine auto-connect toggle (scale auto-connect already works)
+- [ ] Maintenance: Transport Mode (not supported by firmware API)
+- [x] Maintenance: Descaling Start, Air Purge
+- [x] Skin: Theme toggle, Skin Apply (set active skin)
+- [ ] Miscellaneous: Screen Saver toggle, Units selector, Resolution selector (UI exists, not wired to backend)
+- [x] Miscellaneous: Display Size (zoom) — saves to localStorage
+- [x] Miscellaneous: Smart Charging — mode selector, night mode schedule, live charging status
+- [ ] Updates: Firmware Check, App Update Check buttons (UI exists, not wired)
+- [x] Updates: Firmware file upload to DE1
+- [ ] Bluetooth: Machine auto-connect (scale auto-connect works)
 
 ### Features
 - [x] Advanced in-browser profile editor (create and edit profiles, not just upload/delete)
+- [x] Profile notes with full markdown editor (EasyMDE) in the profile editor
+- [x] Send Feedback form — markdown editor, Decent account tagging, system info, GitHub issue submission
+- [x] Talk to Decent — in-app email support thread viewer and composer
 
 ---
 

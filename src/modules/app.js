@@ -343,9 +343,9 @@ function handleData(data) {
 
         let stopReason;
         if (targetWeight > 0 && finalWeight !== null && finalWeight >= targetWeight * 0.93) {
-            stopReason = `Weight target reached: ${finalWeight.toFixed(1)}g`;
+            stopReason = `Espresso weight reached: ${finalWeight.toFixed(1)}g`;
         } else if (targetVolume > 0 && finalVolume >= targetVolume * 0.93) {
-            stopReason = `Volume target reached: ${Math.round(finalVolume)}ml`;
+            stopReason = `Espresso volume reached: ${Math.round(finalVolume)}ml`;
         } else {
             const elapsedS = shotStartTime ? Math.round((Date.now() - shotStartTime.getTime()) / 1000) : 0;
             stopReason = `Shot complete: ${elapsedS}s`;
