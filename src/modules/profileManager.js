@@ -1,6 +1,6 @@
 import { logger } from './logger.js';
-import { updateWorkflow,sendProfile, getWorkflow, getValueFromStore, setValueInStore, getProfiles, deleteProfile, updateProfileVisibility, uploadProfile, updateProfile, updateProfileMetadata } from './api.js';
-import { updateProfileName, updateTemperatureDisplay, updateDrinkOut, updateDrinkRatio, updateDoseInDisplay, updateGrindDisplay, showToast} from './ui.js';
+import { updateWorkflow,sendProfile, getWorkflow, getValueFromStore, setValueInStore, getProfiles, deleteProfile, updateProfileVisibility, uploadProfile, updateProfile, updateProfileMetadata, getShots } from './api.js';
+import { updateProfileName, updateTemperatureDisplay, updateDrinkOut, updateDrinkRatio, updateDoseInDisplay, updateGrindDisplay, updateSteamDisplay, updateHotWaterDisplay, updateFlushDisplay, showToast} from './ui.js';
 import { openDB, getSetting, setSetting } from './idb.js';
 import { loadPage } from './router.js'; // Singular and correctly formatted import
 import { getTranslation } from './i18n.js';
@@ -263,35 +263,44 @@ function fitButtonText(button) {
     const padY = 8;
     const maxWidth = button.offsetWidth - padX;
     const maxHeight = button.offsetHeight - padY;
+    const wordCount = text.trim().split(/\s+/).length;
 
     const span = document.createElement('span');
     span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-weight:600;line-height:1.25;';
     span.textContent = text;
     document.body.appendChild(span);
 
-    // Try single-line shrink down to FAV_SINGLE_LINE_MIN.
     let fontSize = 0;
-    for (let f = FAV_MAX_FONT; f >= FAV_SINGLE_LINE_MIN; f -= 2) {
-        span.style.fontSize = f + 'px';
-        if (span.offsetWidth <= maxWidth) {
-            fontSize = f;
-            break;
-        }
-    }
 
-    // If single-line didn't fit even at FAV_SINGLE_LINE_MIN, switch to wrap mode
-    // and pick the largest font from FAV_SINGLE_LINE_MIN down to FAV_MIN_FONT
-    // whose wrapped height fits the button.
-    if (!fontSize) {
+    if (wordCount <= 3) {
+        // Short names: use FAV_MAX_FONT in wrap mode — two lines at 22px fit easily.
         span.style.whiteSpace = 'normal';
         span.style.width = maxWidth + 'px';
         span.style.textWrap = 'balance';
-        fontSize = FAV_MIN_FONT;
-        for (let f = FAV_SINGLE_LINE_MIN; f >= FAV_MIN_FONT; f -= 2) {
+        span.style.fontSize = FAV_MAX_FONT + 'px';
+        fontSize = span.offsetHeight <= maxHeight ? FAV_MAX_FONT : FAV_MIN_FONT;
+    } else {
+        // Longer names: try single-line shrink down to FAV_SINGLE_LINE_MIN.
+        for (let f = FAV_MAX_FONT; f >= FAV_SINGLE_LINE_MIN; f -= 2) {
             span.style.fontSize = f + 'px';
-            if (span.offsetHeight <= maxHeight) {
+            if (span.offsetWidth <= maxWidth) {
                 fontSize = f;
                 break;
+            }
+        }
+
+        // If single-line didn't fit even at FAV_SINGLE_LINE_MIN, switch to wrap mode.
+        if (!fontSize) {
+            span.style.whiteSpace = 'normal';
+            span.style.width = maxWidth + 'px';
+            span.style.textWrap = 'balance';
+            fontSize = FAV_MIN_FONT;
+            for (let f = FAV_SINGLE_LINE_MIN; f >= FAV_MIN_FONT; f -= 2) {
+                span.style.fontSize = f + 'px';
+                if (span.offsetHeight <= maxHeight) {
+                    fontSize = f;
+                    break;
+                }
             }
         }
     }
@@ -736,6 +745,88 @@ export function getHiddenProfiles() {
     return Object.values(availableProfiles).filter(p => p.visibility === 'hidden');
 }
 
+// --- Auto-populate favorites from shot history ---
+
+async function autoPopulateFavoritesFromHistory() {
+    const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - THREE_WEEKS_MS).toISOString();
+
+    let shots = [];
+    try {
+        const data = await getShots({ limit: 200, order: 'desc' });
+        shots = (data.items ?? []).filter(s => s.timestamp >= cutoff);
+    } catch (e) {
+        logger.warn('autoPopulateFavoritesFromHistory: could not fetch shots', e);
+        return;
+    }
+
+    if (shots.length === 0) {
+        logger.info('autoPopulateFavoritesFromHistory: no recent shots, leaving buttons empty');
+        return;
+    }
+
+    // Walk shots newest-first, collect up to FAV_COUNT distinct profile keys
+    const usedKeys = new Set();
+    const orderedKeys = [];
+    for (const shot of shots) {
+        const title = shot.workflow?.profile?.title;
+        if (!title) continue;
+        const profileKey = Object.keys(availableProfiles).find(
+            k => availableProfiles[k]?.profile?.title === title
+        );
+        if (profileKey && !usedKeys.has(profileKey)) {
+            usedKeys.add(profileKey);
+            orderedKeys.push(profileKey);
+        }
+        if (orderedKeys.length >= FAV_COUNT) break;
+    }
+
+    for (let i = 0; i < FAV_COUNT; i++) {
+        favoriteAssignments[i] = orderedKeys[i] || null;
+    }
+
+    await saveAssignments();
+    updateButtonUI();
+
+    // Pre-populate recipe sidebar from the most recent shot
+    const latest = shots[0];
+    if (latest?.workflow) {
+        _applyRecipeFromShot(latest.workflow);
+    }
+}
+
+function _applyRecipeFromShot(workflow) {
+    const context = workflow.context;
+
+    const dose = context?.targetDoseWeight ?? workflow.doseData?.doseIn;
+    const yield_ = context?.targetYield ?? workflow.doseData?.drinkOut;
+    const grind = context?.grinderSetting ?? workflow.grinderData?.setting;
+    const brewTemp = workflow.profile?.steps?.[0]?.temperature;
+    const steamDuration = workflow.steamSettings?.duration;
+    const steamFlow = workflow.steamSettings?.flow;
+    const hotWaterVol = workflow.hotWaterData?.volume;
+    const hotWaterTemp = workflow.hotWaterData?.targetTemperature;
+    const flushDuration = workflow.rinseData?.duration;
+
+    if (dose != null) updateDoseInDisplay(dose);
+    if (yield_ != null) { updateDrinkOut(yield_); updateDrinkRatio(); }
+    if (grind != null) updateGrindDisplay({ grinderSetting: String(grind) });
+    if (brewTemp != null) updateTemperatureDisplay(brewTemp);
+    if (steamDuration != null || steamFlow != null) {
+        updateSteamDisplay({
+            ...(steamDuration != null && { targetSteamDuration: steamDuration }),
+            ...(steamFlow != null && { targetSteamFlow: steamFlow }),
+        });
+    }
+    if (hotWaterVol != null || hotWaterTemp != null) {
+        updateHotWaterDisplay({
+            ...(hotWaterVol != null && { targetHotWaterVolume: hotWaterVol }),
+            ...(hotWaterTemp != null && { targetHotWaterTemp: hotWaterTemp }),
+        });
+    }
+    if (flushDuration != null) updateFlushDisplay(flushDuration);
+}
+
 // --- Initialization ---
 
 export async function init() {
@@ -759,7 +850,14 @@ export async function init() {
 
         profileLoadStatus = await loadAvailableProfiles();
         await loadAssignments();
-        updateButtonUI();
+
+        const allEmpty = Object.values(favoriteAssignments).every(v => v === null || v === undefined);
+        if (allEmpty) {
+            logger.info('No favorite assignments found — auto-populating from shot history.');
+            await autoPopulateFavoritesFromHistory();
+        } else {
+            updateButtonUI();
+        }
 
         // Only attach event listeners to buttons that were found in the DOM
         favoriteButtons.forEach((originalButton, index) => {

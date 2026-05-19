@@ -1167,7 +1167,7 @@ export function updateSleepButton(state) {
 
 export function updateMachineStatus(data) {
     const { status, substate, stepName, timeValue, isClickable,  isHeating, isHeatingFromTimeToReady } = data;
-    logger.debug(`Updating machine status to: ${status}, substate: ${substate}, stepName: ${stepName}, time: ${timeValue}, clickable: ${isClickable}`);
+    // logger.debug(`Updating machine status to: ${status}, substate: ${substate}, stepName: ${stepName}, time: ${timeValue}, clickable: ${isClickable}`);
     const machineStatusEl = document.getElementById('machine-status');
     const hotWaterVolValueEl = document.getElementById('hot-water-vol-value');
     const flushtimevalue = document.getElementById('flush-value');
@@ -1309,7 +1309,7 @@ export function updateMachineStatus(data) {
 
         // Apply --status-red-color to "Heating" and --heatingstatus to "Xs remaining" <span class="text-[var(--heatingstatus)]">${timeRemainingPart}</span>
         machineStatusEl.innerHTML = `<span class="text-[var(--status-red-color)]">${heatingPart}</span><span class="text-[var(--heatingstatus)]">${timeRemainingPart}</span>`;
-        logger.info(`DEBUG: Heating with time remaining - Set machine status to: ${machineStatusEl.innerHTML}`);
+        // logger.info(`DEBUG: Heating with time remaining - Set machine status to: ${machineStatusEl.innerHTML}`);
     } else {
         // Check if this is a preinfusion or pouring state and apply special formatting
         // More comprehensive matching to catch all possible espresso-related states
