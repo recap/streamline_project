@@ -745,7 +745,33 @@ export function getHiddenProfiles() {
     return Object.values(availableProfiles).filter(p => p.visibility === 'hidden');
 }
 
-// --- Auto-populate favorites from shot history ---
+// --- Auto-populate favorites from shot history "default" "best_practice" "80s_Espresso" "rao_allonge" "Gentle and sweet"---
+
+const FALLBACK_PROFILE_TITLES = [
+    'Default',
+    'Best practice (light roast)',
+    '80s_Espresso',
+    'Rao Allongé',
+    'Gentle and sweet',
+];
+
+function findProfileKeyByTitle(title) {
+    const lower = title.toLowerCase();
+    return Object.keys(availableProfiles).find(
+        k => availableProfiles[k]?.profile?.title?.toLowerCase() === lower
+    ) || null;
+}
+
+function fillRemainingWithFallbacks(orderedKeys, usedKeys) {
+    for (const title of FALLBACK_PROFILE_TITLES) {
+        if (orderedKeys.length >= FAV_COUNT) break;
+        const key = findProfileKeyByTitle(title);
+        if (key && !usedKeys.has(key)) {
+            usedKeys.add(key);
+            orderedKeys.push(key);
+        }
+    }
+}
 
 async function autoPopulateFavoritesFromHistory() {
     const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
@@ -760,25 +786,30 @@ async function autoPopulateFavoritesFromHistory() {
         return;
     }
 
-    if (shots.length === 0) {
-        logger.info('autoPopulateFavoritesFromHistory: no recent shots, leaving buttons empty');
-        return;
-    }
-
-    // Walk shots newest-first, collect up to FAV_COUNT distinct profile keys
     const usedKeys = new Set();
     const orderedKeys = [];
-    for (const shot of shots) {
-        const title = shot.workflow?.profile?.title;
-        if (!title) continue;
-        const profileKey = Object.keys(availableProfiles).find(
-            k => availableProfiles[k]?.profile?.title === title
-        );
-        if (profileKey && !usedKeys.has(profileKey)) {
-            usedKeys.add(profileKey);
-            orderedKeys.push(profileKey);
+
+    if (shots.length === 0) {
+        logger.info('autoPopulateFavoritesFromHistory: no recent shots, using fallback profiles');
+    } else {
+        // Walk shots newest-first, collect up to FAV_COUNT distinct profile keys
+        for (const shot of shots) {
+            const title = shot.workflow?.profile?.title;
+            if (!title) continue;
+            const profileKey = Object.keys(availableProfiles).find(
+                k => availableProfiles[k]?.profile?.title === title
+            );
+            if (profileKey && !usedKeys.has(profileKey)) {
+                usedKeys.add(profileKey);
+                orderedKeys.push(profileKey);
+            }
+            if (orderedKeys.length >= FAV_COUNT) break;
         }
-        if (orderedKeys.length >= FAV_COUNT) break;
+    }
+
+    // Fill any remaining slots with preferred fallback profiles
+    if (orderedKeys.length < FAV_COUNT) {
+        fillRemainingWithFallbacks(orderedKeys, usedKeys);
     }
 
     for (let i = 0; i < FAV_COUNT; i++) {
@@ -858,6 +889,8 @@ export async function init() {
         } else {
             updateButtonUI();
         }
+
+        document.addEventListener('streamline:languagechange', () => updateButtonUI());
 
         // Only attach event listeners to buttons that were found in the DOM
         favoriteButtons.forEach((originalButton, index) => {

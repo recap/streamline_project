@@ -70,7 +70,7 @@ async function loadTranslations() {
 /**
  * Translates all elements on the page with a `data-i18n-key` attribute.
  */
-function translatePage() {
+export function translatePage() {
     document.querySelectorAll('[data-i18n-key]').forEach(element => {
         const key = element.getAttribute('data-i18n-key');
         element.textContent = getTranslation(key);
@@ -112,12 +112,12 @@ export function setLanguage(lang) {
         currentLanguage = lang;
         localStorage.setItem('language', lang);
         logger.info(`Language set to: ${lang}`);
-        translatePage();
     } else {
         console.warn(`Language '${lang}' not supported. Defaulting to 'en'.`);
         currentLanguage = 'en';
-        translatePage();
     }
+    translatePage();
+    document.dispatchEvent(new CustomEvent('streamline:languagechange', { detail: { language: currentLanguage } }));
 }
 
 /**

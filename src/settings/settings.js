@@ -1,7 +1,7 @@
 import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow, getAllSkins, getDefaultSkin, setDefaultSkin, updateSkins, uploadFirmware } from '../modules/api.js';
 import * as ui from '../modules/ui.js';
 import { initScaling } from '../modules/scaling.js';
-import { getSupportedLanguages, getCurrentLanguage, setLanguage } from '../modules/i18n.js';
+import { getSupportedLanguages, getCurrentLanguage, setLanguage, translatePage } from '../modules/i18n.js';
 import { loadPage } from '../modules/router.js'; // Singular and correctly formatted import
 import { logger } from '../modules/logger.js';
 import { openNotesModal } from '../modules/notes-modal.js';
@@ -112,6 +112,7 @@ function updateSettingsContentArea(category) {
     const contentArea = document.getElementById('settings-content-area');
     if (contentArea) {
         contentArea.innerHTML = renderSettingsContent(category);
+        translatePage();
         if (category === 'appearance') {
             setTimeout(() => {
                 ui.initThemeToggle();
@@ -198,7 +199,7 @@ const settingsTree = {
     'miscellaneous': {
         name: 'Miscellaneous',
         subcategories: [
-            { id: 'reasettings', name: 'Streamline-Bridge Settings', settingsCategory: 'rea' },
+            { id: 'reasettings', name: 'Decent.app Settings', settingsCategory: 'rea' },
             { id: 'brightness', name: 'Brightness', settingsCategory: 'brightness' },
             { id: 'wakelock', name: 'Wake Lock', settingsCategory: 'wakelock' },
             { id: 'presence', name: 'Presence Detection', settingsCategory: 'presence' },
@@ -2749,29 +2750,46 @@ export function renderCalibSlowStartSettings() {
 }
 
 export function renderCalibSteamSettings() {
+    const targetTemp = settingsCache.workflow?.steamSettings?.targetTemperature ?? 155;
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Steam Calibration</p>
+                <p class="leading-[1.2]">Steam Temperature</p>
             </div>
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Steam Calibration</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" disabled class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center cursor-not-allowed" value="120" step="1">
-                            <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
-                                Save
-                            </button>
-                        </div>
+            <div class="content-stretch flex flex-col items-center relative w-full">
+                <div class="border border-[#c9c9c9] border-solid content-stretch flex flex-col gap-[30px] items-center px-[60px] py-[30px] relative shrink-0 w-[590px]">
+                    <div class="content-stretch flex items-center relative shrink-0">
+                        <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.2] not-italic relative shrink-0 text-[var(--text-primary)] text-[30px]">
+                            Steam Temperature
+                        </p>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
+                    <div class="content-stretch flex gap-[20px] h-[72px] items-center justify-center relative shrink-0 w-full">
+                        <button id="steam-temp-minus" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
+                                onclick="window.flashPlusMinusButton(this); window.adjustSteamCalibTemp(-1);">
+                            <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10.416 25H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <div class="text-center text-[var(--text-primary)] text-[24px] font-bold bg-transparent border-none flex items-center justify-center"
+                             style="width: 130px;">
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="steamCalibTempInput" class="text-center text-[var(--text-primary)] text-[24px] font-bold bg-transparent border-none w-full"
+                                   value="${targetTemp}"
+                                   step="1" min="135" max="170"
+                                   onchange="window.updateSteamSetting('targetTemperature', parseInt(this.value))">
+                            <span class="ml-2 text-nowrap">°C</span>
+                        </div>
+                        <button id="steam-temp-plus" class="w-[72px] h-[72px] bg-[var(--button-grey)] rounded-[18px] flex items-center justify-center"
+                                onclick="window.flashPlusMinusButton(this); window.adjustSteamCalibTemp(1);">
+                            <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24.9993 10.4165V39.5832M10.416 24.9998H39.5827" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full text-center">
+                        Set steam temperature (135-170°C)
                     </p>
                 </div>
             </div>
@@ -3369,7 +3387,7 @@ export function renderFirmwareUpdateSettings() {
 
             <div class="w-full flex flex-col gap-4">
                 <div class="flex flex-col gap-4">
-                    <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Streamline-Bridge App Information</p>
+                    <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Decent.app Information</p>
                     ${appInfoDetails}
                 </div>
                 <div class="flex flex-col gap-4">
@@ -3452,7 +3470,7 @@ export function renderUpdatesSettings() {
 
                 <div class="w-full flex flex-col gap-4">
                     <div class="flex flex-col gap-4">
-                        <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Streamline-Bridge App Information</p>
+                        <p class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Decent.app Information</p>
                         ${appInfoDetails}
                     </div>
                     <div class="flex flex-col gap-4">
@@ -3489,11 +3507,14 @@ export function renderSubcategories(mainCategoryKey) {
 
     let subcategoryItems = '';
     category.subcategories.forEach((subcat) => {
+        const prefixMatch = subcat.name.match(/^(\d+\.\s*)/);
+        const prefix = prefixMatch ? prefixMatch[1] : '';
+        const label = prefix ? subcat.name.slice(prefix.length) : subcat.name;
         subcategoryItems += `
             <li>
                 <button class="settings-subnav-btn w-full text-left px-4 py-3 rounded-lg text-[20px] text-[#959595] hover:text-white hover:bg-[#2c4a7a] flex items-center"
                         data-category="${subcat.settingsCategory}">
-                    <span>${subcat.name}</span>
+                    ${prefix}<span data-i18n-key="${label}">${label}</span>
                 </button>
             </li>
         `;
@@ -3848,6 +3869,14 @@ export async function initializeSettings() {
 
     // Apply translations to the settings page
     setLanguage(getCurrentLanguage());
+
+    // Re-translate settings content whenever language changes
+    document.addEventListener('streamline:languagechange', () => {
+        translatePage();
+        if (activeSettingsCategory) {
+            updateSettingsContentArea(activeSettingsCategory);
+        }
+    });
 
     // Expose update functions to global scope for inline event handlers
     window.updateReaSetting = updateReaSetting;
@@ -4366,6 +4395,16 @@ export async function initializeSettings() {
         if (input) {
             let newValue = parseInt(input.value, 10) + change;
             newValue = Math.max(0, Math.min(100, newValue));
+            input.value = newValue;
+            input.dispatchEvent(new Event('change'));
+        }
+    };
+
+    window.adjustSteamCalibTemp = function(change) {
+        const input = document.getElementById('steamCalibTempInput');
+        if (input) {
+            let newValue = parseInt(input.value, 10) + change;
+            newValue = Math.max(135, Math.min(170, newValue));
             input.value = newValue;
             input.dispatchEvent(new Event('change'));
         }
