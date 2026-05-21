@@ -5,6 +5,9 @@ import { getSupportedLanguages, getCurrentLanguage, setLanguage, translatePage }
 import { loadPage } from '../modules/router.js'; // Singular and correctly formatted import
 import { logger } from '../modules/logger.js';
 import { openNotesModal } from '../modules/notes-modal.js';
+import { openDB, getSetting, setSetting } from '../modules/idb.js';
+
+let screensaverImagesCache = [];
 
 // Enhanced cache for settings data with loading states
 let settingsCache = {
@@ -255,6 +258,12 @@ async function _loadSettingsInternal() {
         settingsCache.de1Advanced = de1AdvancedSettings;
         settingsCache.appInfo = appInfoData;
         settingsCache.workflow = workflowData;
+
+        try {
+            await openDB();
+            const stored = await getSetting('screensaverImages');
+            if (Array.isArray(stored) && stored.length > 0) screensaverImagesCache = stored;
+        } catch (e) { /* non-fatal */ }
 
         return { reaSettings, de1Settings, de1AdvancedSettings, appInfoData, workflowData };
     } catch (error) {
@@ -1403,28 +1412,73 @@ export function renderFeedbackSettings() {
 
 // Render Screen Saver settings
 export function renderScreenSaverSettings() {
+    const enabled = localStorage.getItem('screensaverEnabled') !== 'false';
+    const hasCustom = screensaverImagesCache.length > 0;
+
+    const thumbnails = screensaverImagesCache.map((src, i) => `
+        <div class="relative w-[120px] h-[80px] rounded-[10px] overflow-hidden flex-shrink-0">
+            <img src="${src}" class="w-full h-full object-cover" alt="Screensaver ${i + 1}">
+        </div>
+    `).join('');
+
+    const imageSection = hasCustom ? `
+        <div class="flex flex-wrap gap-[12px]">${thumbnails}</div>
+        <div class="flex items-center gap-[16px]">
+            <button class="bg-[#385a92] h-[62px] px-[36px] rounded-[72px] text-white text-[22px] font-bold"
+                    onclick="document.getElementById('screensaver-file-input').click()">
+                Add Images
+            </button>
+            <button class="bg-[var(--box-color)] border-2 border-[#385a92] h-[62px] px-[36px] rounded-[72px] text-[#385a92] text-[22px] font-bold"
+                    onclick="window.clearScreensaverImages()">
+                Clear All
+            </button>
+        </div>
+        <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[22px] w-full">
+            ${screensaverImagesCache.length} image${screensaverImagesCache.length !== 1 ? 's' : ''} selected${screensaverImagesCache.length > 1 ? ' — cycles every 10s' : ''}
+        </p>
+    ` : `
+        <div class="flex items-center gap-[16px]">
+            <button class="bg-[#385a92] h-[62px] px-[36px] rounded-[72px] text-white text-[22px] font-bold"
+                    onclick="document.getElementById('screensaver-file-input').click()">
+                Choose Images
+            </button>
+        </div>
+        <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[22px] w-full">
+            No custom images — using default. Select images from your device.
+        </p>
+    `;
+
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
                 <p class="leading-[1.2]">Screen Saver</p>
             </div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Screen Saver</p>
-                        </div>
-                        <select class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2">
-                            <option>Enabled</option>
-                            <option>Disabled</option>
-                        </select>
+            <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                <div class="content-stretch flex items-center justify-between relative w-full">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Enable Screen Saver</p>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Enable or disable screen saver functionality
-                    </p>
+                    <input type="checkbox" class="toggle toggle-primary scale-[2] mr-[16px]"
+                           ${enabled ? 'checked' : ''}
+                           onchange="window.setScreensaverEnabled(this.checked)">
                 </div>
+                <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                    Show screen saver when the machine sleeps
+                </p>
             </div>
+
+            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
+
+            <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
+                <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                    <p class="leading-[1.2]">Images</p>
+                </div>
+                ${imageSection}
+            </div>
+
+            <input type="file" id="screensaver-file-input" class="hidden" multiple accept="image/*"
+                   onchange="window.addScreensaverFiles(this.files)">
         </div>
     `;
 }
@@ -3842,6 +3896,44 @@ export async function initializeSettings() {
     window.updateReaSetting = updateReaSetting;
     window.updateDe1Setting = updateDe1Setting;
     window.updateDe1AdvancedSetting = updateDe1AdvancedSetting;
+    window.setScreensaverEnabled = function(enabled) {
+        localStorage.setItem('screensaverEnabled', enabled ? 'true' : 'false');
+        ui.showToast(`Screen saver ${enabled ? 'enabled' : 'disabled'}`, 2000, 'success');
+    };
+
+    window.addScreensaverFiles = async function(files) {
+        if (!files || files.length === 0) return;
+        const readFile = f => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(f);
+        });
+        try {
+            const newImages = await Promise.all(Array.from(files).map(readFile));
+            screensaverImagesCache = [...screensaverImagesCache, ...newImages];
+            await openDB();
+            await setSetting('screensaverImages', screensaverImagesCache);
+            ui.setScreensaverImages(screensaverImagesCache);
+            ui.showToast(`${newImages.length} image${newImages.length !== 1 ? 's' : ''} added`, 2000, 'success');
+            if (activeSettingsCategory) updateSettingsContentArea(activeSettingsCategory);
+        } catch (e) {
+            ui.showToast('Failed to save images', 3000, 'error');
+        }
+    };
+
+    window.clearScreensaverImages = async function() {
+        try {
+            screensaverImagesCache = [];
+            await openDB();
+            await setSetting('screensaverImages', []);
+            ui.setScreensaverImages([]);
+            ui.showToast('Custom images cleared', 2000, 'success');
+            if (activeSettingsCategory) updateSettingsContentArea(activeSettingsCategory);
+        } catch (e) {
+            ui.showToast('Failed to clear images', 3000, 'error');
+        }
+    };
     window.updateHeaterVoltage = async function(value) {
         await window.updateDe1AdvancedSetting('heaterVoltage', value);
         ui.showToast('Restart the machine for the voltage change to take effect', 6000, 'warning');

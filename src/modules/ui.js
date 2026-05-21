@@ -1,4 +1,5 @@
 import { getProfile, getWorkflow, updateWorkflow, setMachineState, setTargetHotWaterVolume, setTargetHotWaterTemp, setTargetHotWaterDuration, setDe1Settings, setTargetSteamFlow, setTargetSteamDuration, MachineState, reaHostname, setPluginSettings, getPlugins, getPluginSettings, verifyVisualizerCredentials } from './api.js';
+import { openDB, getSetting } from './idb.js';
 import { shouldUseNumpad } from './numpad-modal.js';
 import { logger } from './logger.js';
 import * as chart from './chart.js';
@@ -624,9 +625,13 @@ export function showScaleInfo() {
 // Screensaver functionality
 let screensaverActive = false;
 let screensaverElement = null;
+let screensaverImages = [];
+let screensaverCurrentIndex = 0;
+let screensaverCycleInterval = null;
+const SCREENSAVER_CYCLE_MS = 10000;
+const DEFAULT_SCREENSAVER = 'url("src/ui/saver-1.jpg")';
 
-export function initScreensaver() {
-    // Create the screensaver element
+export async function initScreensaver() {
     screensaverElement = document.createElement('div');
     screensaverElement.id = 'screensaver';
     screensaverElement.style.position = 'fixed';
@@ -634,7 +639,6 @@ export function initScreensaver() {
     screensaverElement.style.left = '0';
     screensaverElement.style.width = '100vw';
     screensaverElement.style.height = '100vh';
-    screensaverElement.style.backgroundImage = 'url("src/ui/saver-1.jpg")';
     screensaverElement.style.backgroundSize = 'cover';
     screensaverElement.style.backgroundPosition = 'center';
     screensaverElement.style.zIndex = '10000';
@@ -642,11 +646,36 @@ export function initScreensaver() {
     screensaverElement.style.justifyContent = 'center';
     screensaverElement.style.alignItems = 'center';
 
-    // Add click/touch event to deactivate screensaver
     screensaverElement.addEventListener('click', deactivateScreensaver);
     screensaverElement.addEventListener('touchstart', deactivateScreensaver);
 
     document.body.appendChild(screensaverElement);
+
+    try {
+        await openDB();
+        const stored = await getSetting('screensaverImages');
+        if (Array.isArray(stored) && stored.length > 0) {
+            screensaverImages = stored;
+        }
+    } catch (e) {
+        // fall through to default
+    }
+    _applyScreensaverImage();
+}
+
+function _applyScreensaverImage() {
+    if (!screensaverElement) return;
+    if (screensaverImages.length > 0) {
+        screensaverElement.style.backgroundImage = `url("${screensaverImages[screensaverCurrentIndex]}")`;
+    } else {
+        screensaverElement.style.backgroundImage = DEFAULT_SCREENSAVER;
+    }
+}
+
+export function setScreensaverImages(images) {
+    screensaverImages = images;
+    screensaverCurrentIndex = 0;
+    _applyScreensaverImage();
 }
 
 export function activateScreensaver() {
@@ -654,15 +683,27 @@ export function activateScreensaver() {
         console.error('Screensaver element not initialized');
         return;
     }
-
+    screensaverCurrentIndex = 0;
+    _applyScreensaverImage();
     screensaverElement.style.display = 'flex';
     screensaverActive = true;
+
+    if (screensaverImages.length > 1) {
+        screensaverCycleInterval = setInterval(() => {
+            screensaverCurrentIndex = (screensaverCurrentIndex + 1) % screensaverImages.length;
+            _applyScreensaverImage();
+        }, SCREENSAVER_CYCLE_MS);
+    }
 }
 
 export function deactivateScreensaver() {
     if (!screensaverElement) {
         console.error('Screensaver element not initialized');
         return;
+    }
+    if (screensaverCycleInterval) {
+        clearInterval(screensaverCycleInterval);
+        screensaverCycleInterval = null;
     }
     screensaverElement.style.display = 'none';
     screensaverActive = false;

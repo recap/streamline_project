@@ -279,8 +279,8 @@ function handleData(data) {
     if (state === MachineState.ERROR) {
         statusString = "Error";
     } else if (state === MachineState.SLEEPING) {
-        // Activate screensaver when machine enters sleep state
-        if (!ui.isScreensaverActive()) {
+        // Activate screensaver when machine enters sleep state (if not disabled by user)
+        if (!ui.isScreensaverActive() && localStorage.getItem('screensaverEnabled') !== 'false') {
             logger.info('Machine entered sleep state. Activating screensaver.');
             ui.activateScreensaver();
         }
