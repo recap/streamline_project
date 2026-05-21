@@ -239,3 +239,8 @@ export function updateShotData(de1Data, scaleWeight) {
 export function getCurrentShot() {
     return currentShot;
 }
+
+export function getTotalTime() {
+    if (!currentShot.timestamps || currentShot.timestamps.length < 2) return 0;
+    return (currentShot.timestamps[currentShot.timestamps.length - 1] - currentShot.timestamps[0]) / 1000;
+}

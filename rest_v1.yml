@@ -215,7 +215,7 @@ paths:
         Returns the optional capability surfaces the currently connected
         machine exposes. Plain DE1s return an empty list; Bengle returns
         `["cupWarmer", "integratedScale"]` plus any future capabilities
-        (LED strip, milk probe) as they ship. Skins should query this
+        as they ship. Skins should query this
         endpoint once after connect to decide which UI to render and
         which `/api/v1/machine/...` capability endpoints to call.
       tags: [Machine]
@@ -400,6 +400,20 @@ paths:
       responses:
         "202":
           description: Advanced settings update accepted
+
+  /api/v1/machine/settings/reset:
+    delete:
+      summary: Reset machine settings to defaults
+      description: |
+        Reapplies a baseline set of machine settings (fan threshold, heater idle temp,
+        heater phase 1/2 flows, heater phase 2 timeout, refill kit auto mode,
+        flow estimation multiplier, steam purge mode). Profile and workflow are not touched.
+      tags: [Machine]
+      responses:
+        "202":
+          description: Reset accepted
+        "500":
+          description: No DE1 connected
 
   /api/v1/machine/calibration:
     get:
@@ -1015,6 +1029,113 @@ paths:
                 properties:
                   error:
                     type: string
+
+  # Steams API
+  #
+  # Recorded steaming sessions. Mirrors the /shots surface for milk
+  # steaming. Each record is opened on entry to MachineState.steam and
+  # finalized when the machine leaves steam.
+  #
+  /api/v1/steams:
+    get:
+      summary: List all steam records
+      tags: [Steams History]
+      responses:
+        "200":
+          description: List of steam records (without measurements)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SteamRecord"
+
+  /api/v1/steams/ids:
+    get:
+      summary: List steam record IDs
+      tags: [Steams History]
+      responses:
+        "200":
+          description: Array of steam record ids
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/v1/steams/latest:
+    get:
+      summary: Get the most recent steam record (metadata only)
+      tags: [Steams History]
+      responses:
+        "200":
+          description: Latest steam record metadata (no measurements)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SteamRecord"
+
+  /api/v1/steams/{id}:
+    get:
+      summary: Get a specific steam record by ID
+      tags: [Steams History]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Steam record found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SteamRecord"
+        "404":
+          description: Steam record not found
+
+    put:
+      summary: Update a steam record's annotations
+      description: |
+        Only annotations are updatable. Measurements and workflow are
+        immutable once persisted.
+      tags: [Steams History]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                annotations:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Steam record updated
+        "404":
+          description: Steam record not found
+
+    delete:
+      summary: Delete a steam record
+      tags: [Steams History]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Steam record deleted
 
   # Beans API
   #
@@ -3660,13 +3781,17 @@ components:
           description: |
             Capability identifiers supported by the currently connected
             machine. Plain DE1 returns an empty array. Bengle returns
-            `cupWarmer` and `integratedScale`. Future Bengle peripherals
-            (LED strip, milk probe) will append their identifiers as
-            they ship.
+            `cupWarmer`, `integratedScale`, `ledStrip`, and
+            `stopAtWeight` (autonomous in-FW stop-at-weight driven by
+            the integrated scale; the app reflects
+            `WorkflowContext.targetYield` into the SAW MMR). Future
+            Bengle peripherals will append their identifiers as they
+            ship. Note: the milk-probe scaffolding lives in `/sensors`,
+            not here.
           items:
             type: string
-            enum: [cupWarmer, integratedScale, ledStrip]
-          example: [cupWarmer, integratedScale, ledStrip]
+            enum: [cupWarmer, integratedScale, ledStrip, stopAtWeight]
+          example: [cupWarmer, integratedScale, ledStrip, stopAtWeight]
 
     CupWarmerState:
       type: object
@@ -3962,6 +4087,20 @@ components:
           description: Heater phase 2 timeout in seconds (how long should de1 try to stabilize temperature)
           type: integer
           nullable: true
+        heaterVoltage:
+          description: |
+            Mains heater voltage hint. Accepts `120` (110V region) or `230` (220V region).
+            Values above 1000 are treated as already-set markers (firmware adds 1000 once committed)
+            and are clamped back into the same set. Other values map to "unset" and are ignored.
+          type: integer
+          nullable: true
+          enum: [120, 230]
+        refillKitSetting:
+          description: |
+            Refill kit behavior. `2` = auto (default), `1` = force on, `0` = force off.
+          type: integer
+          nullable: true
+          enum: [0, 1, 2]
     De1AdvancedSettingsResponse:
       type: object
       properties:
@@ -3977,6 +4116,18 @@ components:
         heaterPh2Timeout:
           description: Heater phase 2 timeout in seconds (how long should de1 try to stabilize temperature)
           type: integer
+        heaterVoltage:
+          description: |
+            Mains heater voltage hint. `120` = 110V region, `230` = 220V region.
+            Firmware adds 1000 to indicate the value has been committed (e.g. `1230`);
+            on read this is normalized back to the bare value.
+          type: integer
+          enum: [120, 230, -1]
+        refillKitSetting:
+          description: |
+            Refill kit behavior. `2` = auto, `1` = force on, `0` = force off.
+          type: integer
+          enum: [0, 1, 2]
     De1CalibrationRequest:
       type: object
       properties:
@@ -4347,6 +4498,19 @@ components:
           format: double
           description: Steam flow rate
           example: 0.8
+        stopAtTemperature:
+          type: number
+          format: double
+          description: >
+            Stop steaming when the milk-probe reading reaches this
+            temperature (°C). `0` disables the stop. Range 0..80.
+            Scaffolding only today — no machine in production has an
+            integrated probe wired, so the field round-trips but does
+            not affect machine behaviour. On Bengle with a future probe
+            firmware the stop is FW-autonomous; on other machines or
+            third-party probes the app stops via `requestState(idle)`.
+          example: 65.0
+          default: 0.0
 
     HotWaterData:
       type: object
@@ -4493,6 +4657,44 @@ components:
           format: double
           nullable: true
           description: Accumulated volume in milliliters (ml) since shot start, calculated by integrating machine flow over time. Only counted from profile frame specified in targetVolumeCountStart.
+
+    SteamSnapshot:
+      type: object
+      properties:
+        machine:
+          $ref: "#/components/schemas/MachineSnapshot"
+        milkTemperature:
+          type: number
+          format: double
+          nullable: true
+          description: >
+            Milk-probe temperature in °C at this sample. `null` when
+            no probe is registered (today no probe is registered in
+            production — scaffolding only).
+
+    SteamRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        measurements:
+          type: array
+          items:
+            $ref: "#/components/schemas/SteamSnapshot"
+          description: >
+            Per-frame samples collected during the steaming session.
+            Omitted from list / latest responses; only returned by
+            GET /api/v1/steams/{id}.
+        workflow:
+          $ref: "#/components/schemas/WorkflowRequest"
+        annotations:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional annotations (tasting notes, ratings).
 
     WeightSnapshot:
       type: object

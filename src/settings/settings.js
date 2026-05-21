@@ -1,4 +1,4 @@
-import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow, getAllSkins, getDefaultSkin, setDefaultSkin, updateSkins, uploadFirmware } from '../modules/api.js';
+import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, resetDe1Settings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow, getAllSkins, getDefaultSkin, setDefaultSkin, updateSkins, uploadFirmware } from '../modules/api.js';
 import * as ui from '../modules/ui.js';
 import { initScaling } from '../modules/scaling.js';
 import { getSupportedLanguages, getCurrentLanguage, setLanguage, translatePage } from '../modules/i18n.js';
@@ -159,8 +159,6 @@ const settingsTree = {
             { id: 'refillkit',           name: 'Refill Kit',            settingsCategory: 'calib_refillkit' },
             { id: 'voltage',             name: 'Voltage',               settingsCategory: 'calib_voltage' },
             { id: 'fan',                 name: 'Fan',                   settingsCategory: 'calib_fan' },
-            { id: 'stopatweight',        name: 'Stop at weight',        settingsCategory: 'calib_stopatweight' },
-            { id: 'slowstart',           name: 'Slow start',            settingsCategory: 'calib_slowstart' },
             { id: 'steam',               name: 'Steam',                 settingsCategory: 'calib_steam' }
         ]
     },
@@ -390,6 +388,8 @@ export function renderSettingsContent(category) {
             error = settingsCache.de1Error;
             break;
         case 'de1advanced':
+        case 'calib_refillkit':
+        case 'calib_voltage':
             isLoading = settingsCache.de1AdvancedLoading;
             error = settingsCache.de1AdvancedError;
             break;
@@ -417,7 +417,9 @@ export function renderSettingsContent(category) {
         category === 'steam' ||
         category === 'hotwater' ||
         category === 'de1advanced' ||
-        category === 'calib_fan'
+        category === 'calib_fan' ||
+        category === 'calib_refillkit' ||
+        category === 'calib_voltage'
     )) {
         return renderErrorState(getCategoryTitle(category), error);
     }
@@ -449,10 +451,6 @@ export function renderSettingsContent(category) {
             return renderCalibRefillKitSettings();
         case 'calib_voltage':
             return renderCalibVoltageSettings();
-        case 'calib_stopatweight':
-            return renderCalibStopAtWeightSettings();
-        case 'calib_slowstart':
-            return renderCalibSlowStartSettings();
         case 'calib_steam':
             return renderCalibSteamSettings();
         case 'maint_descaling':
@@ -2611,18 +2609,19 @@ export function renderCalibDefaultLoadSettings() {
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+            <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Default Load Settings</p>
+                            <p class="leading-[1.2]">Reset to Defaults</p>
                         </div>
-                        <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
+                        <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold"
+                                onclick="window.resetDe1Settings()">
                             Reset
                         </button>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                        Restores fan threshold, heater idle temp, heater phase flows, phase 2 timeout, refill kit mode, flow multiplier, and steam purge to factory defaults.
                     </p>
                 </div>
             </div>
@@ -2631,6 +2630,17 @@ export function renderCalibDefaultLoadSettings() {
 }
 
 export function renderCalibRefillKitSettings() {
+    const current = settingsCache.de1Advanced?.refillKitSetting ?? -1;
+    const options = [
+        { label: 'Auto',      value: 2 },
+        { label: 'Force On',  value: 1 },
+        { label: 'Force Off', value: 0 },
+    ];
+    const buttons = options.map(o => {
+        const active = current === o.value;
+        return `<button class="h-[72px] px-[36px] rounded-[72px] text-[24px] font-bold ${active ? 'bg-[#385a92] text-white' : 'bg-[var(--box-color)] border-2 border-[#385a92] text-[#385a92]'}"
+                        onclick="window.updateDe1AdvancedSetting('refillKitSetting', ${o.value})">${o.label}</button>`;
+    }).join('');
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
@@ -2639,18 +2649,16 @@ export function renderCalibRefillKitSettings() {
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+            <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Refill Kit</p>
+                            <p class="leading-[1.2]">Refill Kit Mode</p>
                         </div>
-                        <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
-                            Calibrate
-                        </button>
+                        <div class="flex items-center gap-[12px]">${buttons}</div>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                        Auto lets the machine decide. Force On keeps the refill kit always active. Force Off disables it.
                     </p>
                 </div>
             </div>
@@ -2659,6 +2667,18 @@ export function renderCalibRefillKitSettings() {
 }
 
 export function renderCalibVoltageSettings() {
+    const raw = settingsCache.de1Advanced?.heaterVoltage ?? -1;
+    const current = raw > 1000 ? raw - 1000 : raw;
+    const options = [
+        { label: '110V', value: 120 },
+        { label: '220V', value: 230 },
+    ];
+    const buttons = options.map(o => {
+        const active = current === o.value;
+        return `<button class="h-[72px] px-[48px] rounded-[72px] text-[24px] font-bold ${active ? 'bg-[#385a92] text-white' : 'bg-[var(--box-color)] border-2 border-[#385a92] text-[#385a92]'}"
+                        onclick="window.updateHeaterVoltage(${o.value})">${o.label}</button>`;
+    }).join('');
+    const unsetNote = current === -1 ? `<p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[22px] w-full">No voltage set yet — select your mains voltage.</p>` : '';
     return `
         <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
             <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
@@ -2667,21 +2687,20 @@ export function renderCalibVoltageSettings() {
 
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
 
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
+            <div class="content-stretch flex flex-col items-start relative w-full">
                 <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
                     <div class="content-stretch flex items-center justify-between relative w-full">
                         <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Voltage</p>
+                            <p class="leading-[1.2]">Mains Voltage</p>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" disabled class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center cursor-not-allowed" value="120" step="0.1">
-                            <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
-                                Save
-                            </button>
-                        </div>
+                        <div class="flex items-center gap-[12px]">${buttons}</div>
                     </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
+                    ${unsetNote}
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
+                        Set to match your local mains voltage. Incorrect setting may affect heater performance.
+                    </p>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[22px] w-full">
+                        Restart the machine after changing voltage for the setting to take effect.
                     </p>
                 </div>
             </div>
@@ -2689,65 +2708,6 @@ export function renderCalibVoltageSettings() {
     `;
 }
 
-export function renderCalibStopAtWeightSettings() {
-    return `
-        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
-            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Stop at Weight</p>
-            </div>
-
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Stop at Weight</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <input type="number" disabled class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[160px] text-[var(--text-primary)] text-[26px] font-bold text-center cursor-not-allowed" value="36" step="0.1">
-                            <button disabled class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold cursor-not-allowed">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-export function renderCalibSlowStartSettings() {
-    return `
-        <div class="content-stretch flex flex-col gap-[60px] items-start relative w-full">
-            <div class="flex flex-col font-['Inter:Semi_Bold',sans-serif] font-semibold justify-center leading-[0] min-w-full not-italic relative text-[var(--text-primary)] text-[36px] text-center w-[min-content]">
-                <p class="leading-[1.2]">Slow Start</p>
-            </div>
-
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
-            <div class="content-stretch flex flex-col items-start relative w-full opacity-50">
-                <div class="content-stretch flex flex-col gap-[30px] items-start relative w-full">
-                    <div class="content-stretch flex items-center justify-between relative w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Slow Start</p>
-                        </div>
-                        <select disabled class="bg-[#385a92] border-2 border-[#385a92] border-solid h-[62.88px] rounded-[2617.374px] w-[200px] text-white text-[24px] p-2 cursor-not-allowed">
-                            <option>Enabled</option>
-                            <option>Disabled</option>
-                        </select>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-secondary)] text-[24px] w-full">
-                        Not supported by current firmware API
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
-}
 
 export function renderCalibSteamSettings() {
     const targetTemp = settingsCache.workflow?.steamSettings?.targetTemperature ?? 155;
@@ -3882,6 +3842,21 @@ export async function initializeSettings() {
     window.updateReaSetting = updateReaSetting;
     window.updateDe1Setting = updateDe1Setting;
     window.updateDe1AdvancedSetting = updateDe1AdvancedSetting;
+    window.updateHeaterVoltage = async function(value) {
+        await window.updateDe1AdvancedSetting('heaterVoltage', value);
+        ui.showToast('Restart the machine for the voltage change to take effect', 6000, 'warning');
+    };
+    window.resetDe1Settings = async function() {
+        try {
+            await resetDe1Settings();
+            settingsCache.de1Advanced = await getDe1AdvancedSettings();
+            settingsCache.de1 = await getDe1Settings();
+            ui.showToast('Machine settings reset to defaults', 3000, 'success');
+            if (activeSettingsCategory) updateSettingsContentArea(activeSettingsCategory);
+        } catch (error) {
+            ui.showToast(`Failed to reset settings: ${error.message}`, 5000, 'error');
+        }
+    };
 
     // Plugin manager
     window.loadPluginList = async function() {

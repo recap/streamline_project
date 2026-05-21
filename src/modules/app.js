@@ -347,8 +347,8 @@ function handleData(data) {
         } else if (targetVolume > 0 && finalVolume >= targetVolume * 0.93) {
             stopReason = `Espresso volume reached: ${Math.round(finalVolume)}ml`;
         } else {
-            const elapsedS = shotStartTime ? Math.round((Date.now() - shotStartTime.getTime()) / 1000) : 0;
-            stopReason = `Shot complete: ${elapsedS}s`;
+            const totalS = shotData.getTotalTime();
+            stopReason = `Shot complete: ${totalS.toFixed(1)}s`;
         }
         ui.showToast(stopReason, 6000, 'info');
 

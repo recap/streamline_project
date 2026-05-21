@@ -1029,6 +1029,22 @@ export async function setDe1AdvancedSettings(settings) {
     }
 }
 
+export async function resetDe1Settings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/machine/settings/reset`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`Failed to reset DE1 settings. Status: ${response.status}, Body: ${errorBody}`);
+        }
+        logger.info('DE1 settings reset to defaults');
+    } catch (error) {
+        logger.error('Error resetting DE1 settings:', error);
+        throw error;
+    }
+}
+
 export async function setReaSettings(settings) {
     try {
         const response = await fetch(`${API_BASE_URL}/settings`, {
