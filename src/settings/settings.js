@@ -1,4 +1,4 @@
-import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, resetDe1Settings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow, getAllSkins, getDefaultSkin, setDefaultSkin, updateSkins, uploadFirmware } from '../modules/api.js';
+import {  getReaSettings, getDe1Settings, getDe1AdvancedSettings, setReaSettings, setDe1Settings, setDe1AdvancedSettings, resetDe1Settings, setMachineState, reconnectDevice, connectScaleDevice, connectDeviceWebSocket, sendDeviceCommand, dimDisplay, restoreDisplay, currentMachineState, signalHeartbeat, MachineState, getDeviceWebSocket, initDeviceWebSocketWithCallback, saveScaleDeviceId, getScaleDeviceId, connectDisplayWebSocket, sendDisplayCommand, enableWakeLock, disableWakeLock, getPresenceSettings, setPresenceSettings, getPresenceSchedules, createPresenceSchedule, updatePresenceSchedule, deletePresenceSchedule, getAppInfo, getMachineInfo, getWorkflow, updateWorkflow, getAllSkins, getDefaultSkin, setDefaultSkin, updateSkins, stopWebuiServer, startWebuiServer, uploadFirmware } from '../modules/api.js';
 import * as ui from '../modules/ui.js';
 import { initScaling } from '../modules/scaling.js';
 import { getSupportedLanguages, getCurrentLanguage, setLanguage, translatePage } from '../modules/i18n.js';
@@ -4383,12 +4383,27 @@ export async function initializeSettings() {
     window.setActiveSkin = async function(skinId) {
         if (!skinId) return;
         try {
+            ui.showToast('Switching skin...', 0, 'info');
             await setDefaultSkin(skinId);
-            ui.showToast('Active skin updated. Reloading...', 2000, 'success');
-            setTimeout(() => location.reload(), 2000);
+            await stopWebuiServer();
+            await startWebuiServer();
+            ui.showToast('Skin applied. Refresh the page to load the new skin.', 0, 'success');
+            // Show a persistent refresh banner
+            const existing = document.getElementById('skin-refresh-banner');
+            if (!existing) {
+                const banner = document.createElement('div');
+                banner.id = 'skin-refresh-banner';
+                banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:20000;background:#385a92;color:white;display:flex;align-items:center;justify-content:center;gap:24px;padding:20px 32px;font-size:24px;font-family:Inter,sans-serif;';
+                banner.innerHTML = `
+                    <span>Skin changed — refresh the page to apply.</span>
+                    <button onclick="location.reload()" style="background:white;color:#385a92;border:none;border-radius:40px;padding:10px 32px;font-size:22px;font-weight:bold;cursor:pointer;">Refresh Now</button>
+                    <button onclick="document.getElementById('skin-refresh-banner').remove()" style="background:transparent;color:white;border:2px solid white;border-radius:40px;padding:10px 32px;font-size:22px;cursor:pointer;">Later</button>
+                `;
+                document.body.appendChild(banner);
+            }
         } catch (error) {
             logger.error('Error setting active skin:', error);
-            ui.showToast(`Failed to set active skin: ${error.message}`, 5000, 'error');
+            ui.showToast(`Failed to switch skin: ${error.message}`, 5000, 'error');
         }
     };
 

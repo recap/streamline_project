@@ -1649,6 +1649,18 @@ export async function disablePlugin(pluginId) {
     return response.json();
 }
 
+export async function stopWebuiServer() {
+    const response = await fetch(`${API_BASE_URL}/webui/server/stop`, { method: 'POST' });
+    if (!response.ok) throw new Error(`Failed to stop WebUI server: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
+export async function startWebuiServer() {
+    const response = await fetch(`${API_BASE_URL}/webui/server/start`, { method: 'POST' });
+    if (!response.ok) throw new Error(`Failed to start WebUI server: ${response.status} ${response.statusText}`);
+    return response.json();
+}
+
 export async function updateSkins() {
     const response = await fetch(`${API_BASE_URL}/webui/skins/update`, { method: 'POST' });
     if (!response.ok) throw new Error(`Failed to update skins: ${response.status} ${response.statusText}`);
