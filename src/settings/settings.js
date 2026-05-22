@@ -735,56 +735,6 @@ export function renderReaSettingsForm(settings) {
                 </div>
             </div>
 
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
-            <div class="flex flex-col items-start relative w-full max-w-full">
-                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
-                    <div class="flex items-center justify-between relative w-full max-w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Auto-Connect Machine ID</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <input type="text" id="preferredMachineIdInput"
-                                   class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[320px] text-[var(--text-primary)] text-[22px] font-bold text-center"
-                                   value="${settings.preferredMachineId || ''}"
-                                   placeholder="Leave empty to disable">
-                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
-                                    onclick="window.updateReaSetting('preferredMachineId', document.getElementById('preferredMachineIdInput').value || null)">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[270px]">
-                        Device ID for automatic machine connection on startup. Leave empty to disable.
-                    </p>
-                </div>
-            </div>
-
-            <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
-
-            <div class="flex flex-col items-start relative w-full max-w-full">
-                <div class="flex flex-col gap-[30px] items-start relative w-full max-w-full">
-                    <div class="flex items-center justify-between relative w-full max-w-full">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Auto-Connect Scale ID</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <input type="text" id="preferredScaleIdInput"
-                                   class="bg-[var(--box-color)] border-2 border-[#385a92] h-[72px] rounded-[72px] w-[320px] text-[var(--text-primary)] text-[22px] font-bold text-center"
-                                   value="${settings.preferredScaleId || ''}"
-                                   placeholder="Leave empty to disable">
-                            <button class="bg-[#385a92] h-[72px] px-[36px] rounded-[72px] text-white text-[24px] font-bold"
-                                    onclick="window.updateReaSetting('preferredScaleId', document.getElementById('preferredScaleIdInput').value || null)">
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full max-w-full break-words pr-[270px]">
-                        Device ID for automatic scale connection on startup. Leave empty to disable.
-                    </p>
-                </div>
-            </div>
-
             ${settings.webUiPath ? `
             <div class="h-0 relative w-full"><hr class="border-t border-[#c9c9c9] w-full" /></div>
             <div class="flex flex-col items-start relative w-full max-w-full">
@@ -1160,7 +1110,7 @@ export function renderUserManualSettings() {
                         </a>
                     </div>
                     <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px] w-full">
-                        Learn how to use streamline-bridge to create custom skins and more.
+                        Learn how to use Decent.app to create custom skins and more.
                     </p>
                 </div>
             </div>
@@ -3468,7 +3418,7 @@ export function renderUpdatesSettings() {
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="font-['Inter:Bold',sans-serif] font-bold text-[#385a92] text-[30px]">Firmware Update</div>
-                            <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold">Check</button>
+                            <button class="bg-[#385a92] h-[72px] px-[48px] rounded-[72px] text-white text-[24px] font-bold"Check></button>
                         </div>
                         <p class="text-[24px] text-[var(--text-primary)]">Check for firmware updates</p>
                     </div>

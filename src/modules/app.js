@@ -980,6 +980,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                       (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
         const isStandalone = window.navigator.standalone === true;
 
+        // Detect in-app webview: no Chrome/Safari/Firefox branding despite being on mobile,
+        // or explicit webview signals (wv flag on Android, no window.safari on iOS)
+        const ua = navigator.userAgent;
+        const isAndroidWebView = /Android/.test(ua) && /wv/.test(ua);
+        const isIOSWebView = isIOS && !isStandalone && !/Safari\//.test(ua);
+        const isWebView = isAndroidWebView || isIOSWebView;
+
         // Function to determine if we're in fullscreen mode
         // This accounts for both browser fullscreen API and web view fullscreen scenarios
         function isFullscreenMode() {
@@ -1015,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // and rotation prompt is not being shown (rotation takes priority on mobile)
         const isRotationPromptActive = shouldShowRotationPrompt();
         
-        if (!isDesktop && !isFullscreenMode() && !sessionStorage.getItem('fullscreenPromptDismissed') && !isRotationPromptActive) {
+        if (!isDesktop && !isWebView && !isFullscreenMode() && !sessionStorage.getItem('fullscreenPromptDismissed') && !isRotationPromptActive) {
             const toastContainer = document.getElementById('fullscreen-toast-container');
             if (toastContainer) {
                 if (isIOS && !isStandalone) {
