@@ -770,34 +770,29 @@ export async function setMachineState(newState) {
         method: 'PUT',
     });
     if (!response.ok) {
-        throw new Error(`Failed to set machine state to ${newState}`);
-    }
-    return response;
-    //dsdfsf
-    if (!response.ok) {
         let errorBody = null;
-
         try {
             errorBody = await response.json();
         } catch {
+            
         // non-JSON error response
         }
-
+   
         switch (errorBody?.type) {
-        case "block_no_scale":
-            throw new MachineStateError(
-            "Cannot change machine state: no scale is connected.",
-            "block_no_scale",
-            errorBody,
-            );
+            case "block_no_scale":
+                throw new MachineStateError(
+                "Cannot change machine state: no scale is connected.",
+                "block_no_scale",
+                errorBody,
+                );
 
-        default:
-            throw new MachineStateError(
-            `Failed to set machine state to ${newState}`,
-            errorBody?.type ?? "unknown",
-            errorBody,
-            );
-        }
+            default:
+                throw new MachineStateError(
+                `Failed to set machine state to ${newState}`,
+                errorBody?.type ?? "unknown",
+                errorBody,
+                );
+            }
     }
     return response;
 
