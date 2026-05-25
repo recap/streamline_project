@@ -30,6 +30,15 @@ export const MachineState = {
     READY: 'ready', // Note: Not in the official API doc, but used in app.js for shot completion logic
 };
 
+export class MachineStateError extends Error {
+  constructor(message, type, details = null) {
+    super(message);
+    this.name = "MachineStateError";
+    this.type = type;
+    this.details = details;
+  }
+}
+
 export let reconnectingWebSocket = null; // Exporting for app.js access
 export let currentMachineState = null;
 let previousMachineState = null;
@@ -764,6 +773,34 @@ export async function setMachineState(newState) {
         throw new Error(`Failed to set machine state to ${newState}`);
     }
     return response;
+    //dsdfsf
+    if (!response.ok) {
+        let errorBody = null;
+
+        try {
+            errorBody = await response.json();
+        } catch {
+        // non-JSON error response
+        }
+
+        switch (errorBody?.type) {
+        case "block_no_scale":
+            throw new MachineStateError(
+            "Cannot change machine state: no scale is connected.",
+            "block_no_scale",
+            errorBody,
+            );
+
+        default:
+            throw new MachineStateError(
+            `Failed to set machine state to ${newState}`,
+            errorBody?.type ?? "unknown",
+            errorBody,
+            );
+        }
+    }
+    return response;
+
 }
 
 async function sendShotSettings() {

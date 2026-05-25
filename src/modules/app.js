@@ -782,6 +782,11 @@ document.addEventListener('click', async (e) => {
     try {
         await setMachineState(GHC_STATE_MAP[btn.id]);
     } catch (err) {
+        if (err instanceof MachineStateError) {
+            if (err.type === "block_no_scale") {
+                ui.showToast("Scale not connected!", 5000, "error");
+            }
+        }
         logger.error(`GHC state change failed (${btn.id}):`, err);
     }
 });
