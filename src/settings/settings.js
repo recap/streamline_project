@@ -5195,9 +5195,10 @@ export function renderBluetoothScaleSettings(settings) {
     }, 0);
 
     const scalePowerMode = settings?.scalePowerMode ?? 'disabled';
+    const blockOnNoScale = settings?.blockOnNoScale ?? false;
 
     return `
-        <div class="flex flex-col gap-[60px] items-start relative w-full max-w-full overflow-x-hidden">
+        <div class="flex flex-col gap-[32px] items-start relative w-full max-w-full overflow-x-hidden">
 
             <!-- Header -->
             <div class="flex justify-between items-center w-full">
@@ -5211,13 +5212,10 @@ export function renderBluetoothScaleSettings(settings) {
                 </button>
             </div>
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
+            <hr class="border-t border-[#c9c9c9] w-full" />
 
             <!-- Connected Device -->
-            <div class="flex flex-col gap-[20px] items-start relative w-full">
+            <div class="flex flex-col gap-[16px] items-start relative w-full">
                 <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                     <p class="leading-[1.2]">Connected Device</p>
                 </div>
@@ -5226,36 +5224,28 @@ export function renderBluetoothScaleSettings(settings) {
                 </div>
             </div>
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
+            <hr class="border-t border-[#c9c9c9] w-full" />
 
             <!-- Auto-Connect -->
-            <div class="flex flex-col gap-[30px] items-start relative w-full">
-                <div class="flex items-center justify-between w-full">
-                    <div class="flex flex-col gap-[8px]">
-                        <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
-                            <p class="leading-[1.2]">Auto Connect</p>
-                        </div>
-                        <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
-                            Automatically connect to nearby scales.
-                        </p>
+            <div class="flex items-center justify-between w-full">
+                <div class="flex flex-col gap-[8px]">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Auto Connect</p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input type="checkbox" id="auto-connect-scale-toggle" class="toggle toggle-info sr-only peer border border-blue-600 bg-white" onclick="window.toggleAutoConnect('scale')">
-                        <div class="w-11 h-6 bg-[var(--box-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-blue-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#385a92]"></div>
-                    </label>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
+                        Automatically connect to nearby scales.
+                    </p>
                 </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" id="auto-connect-scale-toggle" class="toggle toggle-info sr-only peer border border-blue-600 bg-white" onclick="window.toggleAutoConnect('scale')">
+                    <div class="w-11 h-6 bg-[var(--box-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-blue-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#385a92]"></div>
+                </label>
             </div>
 
-            <!-- Divider -->
-            <div class="h-0 relative w-full">
-                <hr class="border-t border-[#c9c9c9] w-full" />
-            </div>
+            <hr class="border-t border-[#c9c9c9] w-full" />
 
             <!-- Scale Power Mode -->
-            <div class="flex flex-col gap-[30px] items-start relative w-full">
+            <div class="flex flex-col gap-[16px] items-start relative w-full">
                 <div class="flex flex-col gap-[8px] items-start relative w-full">
                     <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
                         <p id="scale-power-management-label" class="leading-[1.2]">Scale Power Mode</p>
@@ -5264,26 +5254,44 @@ export function renderBluetoothScaleSettings(settings) {
                         Controls scale behaviour when machine sleeps.
                     </p>
                 </div>
-                <div class="flex items-center " role="group" aria-labelledby="scale-power-management-label">
-                    <button class="h-[120px] w-[295px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[30px] flex items-center justify-center cursor-pointer transition-colors duration-200
+                <div class="flex items-center gap-[8px]" role="group" aria-labelledby="scale-power-management-label">
+                    <button class="h-[100px] w-[280px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[28px] flex items-center justify-center cursor-pointer transition-colors duration-200
                         ${scalePowerMode === 'disabled' ? 'bg-[var(--mimoja-blue)] text-white' : 'bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] text-[#b6c3d7]'}"
                         aria-pressed="${scalePowerMode === 'disabled'}"
                         onclick="window.updateReaSetting('scalePowerMode', 'disabled')">
                         Disabled
                     </button>
-                    <button class="h-[120px] w-[295px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[30px] flex items-center justify-center cursor-pointer transition-colors duration-200
+                    <button class="h-[100px] w-[280px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[28px] flex items-center justify-center cursor-pointer transition-colors duration-200
                         ${scalePowerMode === 'displayOff' ? 'bg-[var(--mimoja-blue)] text-white' : 'bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] text-[#b6c3d7]'}"
                         aria-pressed="${scalePowerMode === 'displayOff'}"
                         onclick="window.updateReaSetting('scalePowerMode', 'displayOff')">
                         Display Off
                     </button>
-                    <button class="h-[120px] w-[295px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[30px] flex items-center justify-center cursor-pointer transition-colors duration-200
+                    <button class="h-[100px] w-[280px] rounded-[10px] font-['Inter:Bold',sans-serif] font-bold text-[28px] flex items-center justify-center cursor-pointer transition-colors duration-200
                         ${scalePowerMode === 'disconnect' ? 'bg-[var(--mimoja-blue)] text-white' : 'bg-[var(--box-color)] border border-[var(--profile-button-outline-color)] text-[#b6c3d7]'}"
                         aria-pressed="${scalePowerMode === 'disconnect'}"
                         onclick="window.updateReaSetting('scalePowerMode', 'disconnect')">
                         Disconnect
                     </button>
                 </div>
+            </div>
+
+            <hr class="border-t border-[#c9c9c9] w-full" />
+
+            <!-- Block Shot on No Scale -->
+            <div class="flex items-center justify-between w-full">
+                <div class="flex flex-col gap-[8px]">
+                    <div class="flex flex-col font-['Inter:Bold',sans-serif] font-bold justify-center leading-[0] not-italic relative text-[#385a92] text-[30px]">
+                        <p class="leading-[1.2]">Scale Required</p>
+                    </div>
+                    <p class="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] not-italic relative text-[var(--text-primary)] text-[24px]">
+                        Prevent shots from starting when no scale is connected.
+                    </p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" id="block-on-no-scale-toggle" class="toggle toggle-info sr-only peer border border-blue-600 bg-white" ${blockOnNoScale ? 'checked' : ''} onchange="window.updateReaSetting('blockOnNoScale', this.checked)">
+                    <div class="w-11 h-6 bg-[var(--box-color)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-blue-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#385a92]"></div>
+                </label>
             </div>
 
         </div>
