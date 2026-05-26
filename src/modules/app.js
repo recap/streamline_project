@@ -1,4 +1,4 @@
-import { connectWebSocket, getWorkflow, connectScaleWebSocket, ensureGatewayModeTracking, reconnectingWebSocket, getDevices, reconnectDevice, scanForDevices,connectShotSettingsWebSocket, getDe1AdvancedSettings, updateShotSettingsCache, getDe1Settings, MachineState, getShotIds, getShots, getValueFromStore, verifyVisualizerCredentials, connectScaleDevice, tareScale, connectTimeToReadyWebSocket, sendDeviceCommand, saveScaleDeviceId, getScaleDeviceId, getDeviceWebSocket, initDeviceWebSocketWithCallback, connectDisplayWebSocket, getMachineInfo, setMachineState } from './api.js';
+import { connectWebSocket, getWorkflow, connectScaleWebSocket, ensureGatewayModeTracking, reconnectingWebSocket, getDevices, reconnectDevice, scanForDevices,connectShotSettingsWebSocket, getDe1AdvancedSettings, updateShotSettingsCache, getDe1Settings, MachineState, getShotIds, getShots, getValueFromStore, verifyVisualizerCredentials, connectScaleDevice, tareScale, connectTimeToReadyWebSocket, sendDeviceCommand, saveScaleDeviceId, getScaleDeviceId, getDeviceWebSocket, initDeviceWebSocketWithCallback, connectDisplayWebSocket, getMachineInfo, setMachineState, getReaSettings } from './api.js';
 import { initScaling } from './scaling.js';
 import * as chart from './chart.js';
 import * as ui from './ui.js';
@@ -334,42 +334,57 @@ function handleData(data) {
     if (previousState.state === MachineState.ESPRESSO && (state === MachineState.READY || state === MachineState.IDLE)) {
         logger.info('Shot finished. Checking for upload confirmation and refreshing history.');
 
-        // Show stop-reason toast
-        const finishedShot = shotData.getCurrentShot();
-        const finalWeight = finishedShot.weights?.at(-1) ?? latestScaleWeight;
-        const finalVolume = finishedShot.volumes?.at(-1) ?? 0;
-        const targetWeight = parseFloat(currentActiveProfile?.target_weight ?? 0);
-        const targetVolume = parseFloat(currentActiveProfile?.target_volume ?? 0);
-
-        let stopReason;
-        if (targetWeight > 0 && finalWeight !== null && finalWeight >= targetWeight * 0.93) {
-            stopReason = `Espresso weight reached: ${finalWeight.toFixed(1)}g`;
-        } else if (targetVolume > 0 && finalVolume >= targetVolume * 0.93) {
-            stopReason = `Espresso volume reached: ${Math.round(finalVolume)}ml`;
-        } else {
+        (async () => {
+            const finishedShot = shotData.getCurrentShot();
             const totalS = shotData.getTotalTime();
-            stopReason = `Shot complete: ${totalS.toFixed(1)}s`;
-        }
-        ui.showToast(stopReason, 6000, 'info');
 
-        // Start polling for upload confirmation
-        setTimeout(async () => {
-            try {
-                const shotIds = await getShotIds();
-                if (shotIds && shotIds.length > 0) {
-                    const latestShotId = shotIds[shotIds.length - 1];
-                    pollForUploadConfirmation(latestShotId);
-                } else {
-                    logger.warn('Could not get latest shot ID to confirm upload.');
-                }
-            } catch (error) {
-                logger.error('Failed to initiate upload polling:', error);
+            // Detect REA-side block: very short transition + no scale + setting enabled
+            const BLOCKED_SHOT_THRESHOLD_S = 3;
+            if (totalS < BLOCKED_SHOT_THRESHOLD_S && !isScaleConnected) {
+                try {
+                    const reaSettings = await getReaSettings();
+                    if (reaSettings?.blockOnNoScale) {
+                        ui.showToast('Shot blocked: no scale connected', 4000, 'error');
+                        return;
+                    }
+                } catch { /* fall through to normal stop reason */ }
             }
-        }, 2000); // Delay to ensure shot is saved on server
 
-        setTimeout(() => {
-            history.initHistory();
-        }, 5000);
+            // Show stop-reason toast
+            const finalWeight = finishedShot.weights?.at(-1) ?? latestScaleWeight;
+            const finalVolume = finishedShot.volumes?.at(-1) ?? 0;
+            const targetWeight = parseFloat(currentActiveProfile?.target_weight ?? 0);
+            const targetVolume = parseFloat(currentActiveProfile?.target_volume ?? 0);
+
+            let stopReason;
+            if (targetWeight > 0 && finalWeight !== null && finalWeight >= targetWeight * 0.93) {
+                stopReason = `Espresso weight reached: ${finalWeight.toFixed(1)}g`;
+            } else if (targetVolume > 0 && finalVolume >= targetVolume * 0.93) {
+                stopReason = `Espresso volume reached: ${Math.round(finalVolume)}ml`;
+            } else {
+                stopReason = `Shot complete: ${totalS.toFixed(1)}s`;
+            }
+            ui.showToast(stopReason, 6000, 'info');
+
+            // Start polling for upload confirmation
+            setTimeout(async () => {
+                try {
+                    const shotIds = await getShotIds();
+                    if (shotIds && shotIds.length > 0) {
+                        const latestShotId = shotIds[shotIds.length - 1];
+                        pollForUploadConfirmation(latestShotId);
+                    } else {
+                        logger.warn('Could not get latest shot ID to confirm upload.');
+                    }
+                } catch (error) {
+                    logger.error('Failed to initiate upload polling:', error);
+                }
+            }, 2000); // Delay to ensure shot is saved on server
+
+            setTimeout(() => {
+                history.initHistory();
+            }, 5000);
+        })();
     }
     previousState = data.state; // Update previous state
 
@@ -768,6 +783,18 @@ if (assignedProfileRecord && assignedProfileRecord.profile &&
     }
 }
 
+async function isShotBlockedByNoScale() {
+    if (isScaleConnected) return false;
+    try {
+        const reaSettings = await getReaSettings();
+        if (!reaSettings?.blockOnNoScale) return false;
+    } catch {
+        return false;
+    }
+    ui.showToast('No scale connected — shot blocked', 4000, 'error');
+    return true;
+}
+
 // Delegated listener on document — survives all DOM replacements, no re-wiring needed
 const GHC_STATE_MAP = {
     'ghc-coffee-btn': MachineState.ESPRESSO,
@@ -779,8 +806,10 @@ const GHC_STATE_MAP = {
 document.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[id^="ghc-"]');
     if (!btn || !GHC_STATE_MAP[btn.id]) return;
+    const targetState = GHC_STATE_MAP[btn.id];
+    if (targetState === MachineState.ESPRESSO && await isShotBlockedByNoScale()) return;
     try {
-        await setMachineState(GHC_STATE_MAP[btn.id]);
+        await setMachineState(targetState);
     } catch (err) {
         logger.error(`GHC state change failed (${btn.id}):`, err);
     }
@@ -820,6 +849,7 @@ document.addEventListener('keydown', async (e) => {
     const state = getKeyboardStateMap()[e.key];
     if (!state) return;
     e.preventDefault();
+    if (state === MachineState.ESPRESSO && await isShotBlockedByNoScale()) return;
     try {
         await setMachineState(state);
     } catch (err) {

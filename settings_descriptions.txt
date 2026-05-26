@@ -1,0 +1,58 @@
+STREAMLINE SETTINGS — UNTRANSLATED DESCRIPTIONS
+=================================================
+Entries below are NOT yet in the translation CSV.
+Labels already in the CSV have been removed.
+
+
+3a. Default Load Settings
+  Reset to Defaults — Restores fan threshold, heater idle temp, heater phase flows,
+    phase 2 timeout, refill kit mode, flow multiplier, and steam purge to factory defaults.
+
+3b. Refill Kit
+  Refill Kit Mode — Auto lets the machine decide. Force On keeps the refill kit always
+    active. Force Off disables it.
+
+3c. Voltage
+  Mains Voltage — Set to match your local mains voltage. Incorrect setting may affect
+    heater performance. Restart the machine after changing voltage for the setting to
+    take effect.
+
+3e. Steam (Calibration)
+  Set steam temperature (135–170°C).
+
+
+
+Transport Mode (Air Purge)
+  Purges remaining water from the group head. Run before packing the machine to
+    prevent leaks during transport.
+
+
+
+9d. Presence Detection
+  Sleep Timeout (minutes) — Minutes of inactivity before the machine auto-sleeps.
+
+  Wake Schedules — Configure scheduled times to automatically wake the machine on
+    specific days. Each schedule sets a time, days of the week, and an optional
+    "Keep Awake For" duration (up to 12 hours) to keep the machine awake after the
+    schedule fires.
+
+9h. Screen Saver
+  Enable Screen Saver — Show screen saver when the machine sleeps.
+  Custom Images — Select images from your device; cycles every 10 seconds when
+    multiple images are selected. No selection uses the default screensaver.
+
+
+
+Skin Development
+  Learn how to use streamline-bridge to create custom skins and more.
+
+
+QUICK ADJUSTMENTS — DETAIL PAGES
+=================================
+
+Flush Settings
+  Flush Temperature — Temperature for flush cycles (°C).
+  Flush Flow — Flow rate for flush cycles (ml/s).
+
+Water Tank Settings
+  Tank Temperature — Set the water tank temperature (10–40°C).
